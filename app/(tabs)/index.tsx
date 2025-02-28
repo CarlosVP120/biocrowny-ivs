@@ -1,74 +1,188 @@
-import { Image, StyleSheet, Platform } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import {
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  View,
+  Image,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { ThemedText } from "@/components/ThemedText";
+import { ThemedView } from "@/components/ThemedView";
+import { useOrdersStore } from "../store/orderStore";
+import { useState } from "react";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
+  const router = useRouter();
+  const [orders, setOrders] = useState(useOrdersStore.getState().orders);
+
+  // Ordenar los pedidos: pendientes primero, luego en progreso, y completados al final
+  const sortedOrders = [...orders].sort((a, b) => {
+    const orderPriority = {
+      pending: 0,
+      in_progress: 1,
+      completed: 2,
+    };
+    return orderPriority[a.status] - orderPriority[b.status];
+  });
+
+  const handleTakeNextOrder = () => {
+    const nextPendingOrder = orders.find((order) => order.status === "pending");
+    if (nextPendingOrder) {
+      setOrders(
+        orders.map((order) =>
+          order.id === nextPendingOrder.id
+            ? { ...order, status: "in_progress" }
+            : order
+        )
+      );
+      router.push(`/(tabs)/scan-order/${nextPendingOrder.id}`);
+    }
+  };
+
+  const pendingOrders = orders.filter(
+    (order) => order.status === "pending"
+  ).length;
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
+    <SafeAreaView style={styles.safeArea}>
+      <ThemedView style={styles.container}>
+        <View style={styles.header}>
+          <Image
+            source={require("@/assets/images/biocrowny-logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <ThemedText type="title">Lista de Pedidos</ThemedText>
+          <ThemedText type="subtitle">Pendientes: {pendingOrders}</ThemedText>
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.takeOrderButton,
+            !pendingOrders && styles.takeOrderButtonDisabled,
+          ]}
+          onPress={handleTakeNextOrder}
+          disabled={!pendingOrders}
+        >
+          <ThemedText style={styles.buttonText}>
+            {pendingOrders
+              ? `Tomar Siguiente Pedido (${pendingOrders})`
+              : "No hay pedidos pendientes"}
+          </ThemedText>
+        </TouchableOpacity>
+
+        <ScrollView style={styles.scrollView}>
+          {sortedOrders.map((order) => (
+            <ThemedView key={order.id} style={styles.orderCard}>
+              <View style={styles.orderHeader}>
+                <ThemedText type="subtitle">Pedido: {order.id}</ThemedText>
+                <ThemedText
+                  style={[
+                    styles.statusBadge,
+                    order.status === "pending"
+                      ? styles.statusPending
+                      : order.status === "in_progress"
+                      ? styles.statusInProgress
+                      : styles.statusCompleted,
+                  ]}
+                >
+                  {order.status === "pending"
+                    ? "⏳ Pendiente"
+                    : order.status === "in_progress"
+                    ? "✅ Listo para enviar"
+                    : "✅ Listo para enviar"}
+                </ThemedText>
+              </View>
+
+              <View style={styles.orderInfo}>
+                <ThemedText>📅 Fecha: {order.orderDate}</ThemedText>
+                <ThemedText>🎯 Entrega: {order.estimatedDate}</ThemedText>
+                <ThemedText>🏭 Almacén: {order.warehouse}</ThemedText>
+                <ThemedText>📦 Productos: {order.products.length}</ThemedText>
+              </View>
+            </ThemedView>
+          ))}
+        </ScrollView>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  safeArea: {
+    flex: 1,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  container: {
+    flex: 1,
+    padding: 16,
+    paddingTop: 20,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  header: {
+    marginBottom: 16,
+    gap: 4,
+  },
+  scrollView: {
+    flex: 1,
+    marginTop: 16,
+  },
+  orderCard: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  orderHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  orderInfo: {
+    gap: 4,
+  },
+  takeOrderButton: {
+    backgroundColor: "#007AFF",
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  takeOrderButtonDisabled: {
+    backgroundColor: "#999",
+  },
+  buttonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  statusPending: {
+    backgroundColor: "#FFF3CD",
+    color: "#856404",
+  },
+  statusInProgress: {
+    backgroundColor: "#D4EDDA",
+    color: "#155724",
+  },
+  statusCompleted: {
+    backgroundColor: "#D4EDDA",
+    color: "#155724",
+  },
+  logo: {
+    width: 200,
+    height: 60,
+    alignSelf: "center",
+    marginBottom: 16,
   },
 });
