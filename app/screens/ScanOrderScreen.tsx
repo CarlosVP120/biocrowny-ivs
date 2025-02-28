@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -8,6 +8,7 @@ import {
   Dimensions,
   useColorScheme,
   Modal,
+  Easing,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
@@ -32,6 +33,7 @@ export default function ScanOrderScreen() {
   );
   const [isScanning, setIsScanning] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [isInCooldown, setIsInCooldown] = useState(false);
   const colorScheme = useColorScheme();
   const [permission, requestPermission] = useCameraPermissions();
   const [modalVisible, setModalVisible] = useState(false);
@@ -41,6 +43,38 @@ export default function ScanOrderScreen() {
 
   // Animación del drawer
   const drawerAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+
+  // Animaciones para el cooldown del escáner
+  const scanFrameColorAnim = useRef(new Animated.Value(0)).current;
+  const scanLoadingAnim = useRef(new Animated.Value(0)).current;
+
+  // Efecto para la animación de carga durante el cooldown
+  useEffect(() => {
+    if (isInCooldown) {
+      // Animar el color del marco a naranja
+      Animated.timing(scanFrameColorAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+
+      // Animar la barra de carga
+      Animated.timing(scanLoadingAnim, {
+        toValue: 1,
+        duration: 1500,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      }).start(() => {
+        // Cuando termina la animación, resetear el cooldown
+        setIsInCooldown(false);
+        setScanned(false);
+
+        // Resetear las animaciones
+        scanFrameColorAnim.setValue(0);
+        scanLoadingAnim.setValue(0);
+      });
+    }
+  }, [isInCooldown]);
 
   const openDrawer = async () => {
     if (!permission?.granted) {
@@ -94,7 +128,7 @@ export default function ScanOrderScreen() {
   };
 
   const handleBarCodeScanned = (scanningResult: BarcodeScanningResult) => {
-    if (scanned || !currentOrder) return;
+    if (scanned || isInCooldown || !currentOrder) return;
 
     const { data } = scanningResult;
     console.log("Código escaneado:", data);
@@ -127,6 +161,7 @@ export default function ScanOrderScreen() {
       );
 
       setScanned(true);
+      setIsInCooldown(true);
 
       const remaining =
         productToUpdate.quantity - (productToUpdate.scannedCount + 1);
@@ -153,11 +188,6 @@ export default function ScanOrderScreen() {
             closeDrawer();
           }, 1500);
         }, 500);
-      } else {
-        // Si no están todos los productos completos, permitir escanear otro
-        setTimeout(() => {
-          setScanned(false);
-        }, 1000);
       }
     } else {
       const isProductComplete = currentOrder.products.find(
@@ -166,11 +196,15 @@ export default function ScanOrderScreen() {
       );
 
       if (isProductComplete) {
+        setScanned(true);
+        setIsInCooldown(true);
         showModal(
           `El producto "${isProductComplete.name}" ya fue escaneado completamente`,
           "error"
         );
       } else {
+        setScanned(true);
+        setIsInCooldown(true);
         showModal(
           `Código "${data}" no corresponde a ningún producto del pedido`,
           "error"
@@ -182,6 +216,9 @@ export default function ScanOrderScreen() {
   // Función para reiniciar el escaneo
   const handleRescan = () => {
     setScanned(false);
+    setIsInCooldown(false);
+    scanFrameColorAnim.setValue(0);
+    scanLoadingAnim.setValue(0);
   };
 
   const handleCompleteOrder = () => {
@@ -222,7 +259,14 @@ export default function ScanOrderScreen() {
     warning: isDark ? "#9E6A03" : "#856404",
     warningBg: isDark ? "#3D2E08" : "#FFF3CD",
     successBg: isDark ? "#132E1A" : "#D4EDDA",
+    orange: "#FF9500",
   };
+
+  // Interpolación de colores para el marco de escaneo
+  const scanFrameBorderColor = scanFrameColorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [colors.primary, colors.orange],
+  });
 
   return (
     <ThemedView
@@ -401,15 +445,39 @@ export default function ScanOrderScreen() {
                   "upc_e",
                 ],
               }}
-              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              onBarcodeScanned={
+                scanned || isInCooldown ? undefined : handleBarCodeScanned
+              }
             />
             <View style={styles.overlay}>
-              <View style={styles.scanFrame} />
+              <Animated.View
+                style={[
+                  styles.scanFrame,
+                  { borderColor: scanFrameBorderColor },
+                ]}
+              >
+                {isInCooldown && (
+                  <Animated.View
+                    style={[
+                      styles.scanLoadingBar,
+                      {
+                        width: scanLoadingAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ["0%", "100%"],
+                        }),
+                        backgroundColor: colors.orange,
+                      },
+                    ]}
+                  />
+                )}
+              </Animated.View>
               <ThemedText style={styles.scanText}>
-                Posiciona el código de barras dentro del marco
+                {isInCooldown
+                  ? "Procesando código escaneado..."
+                  : "Posiciona el código de barras dentro del marco"}
               </ThemedText>
             </View>
-            {scanned && (
+            {scanned && !isInCooldown && (
               <TouchableOpacity
                 style={styles.rescanButton}
                 onPress={handleRescan}
@@ -610,6 +678,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#007AFF",
     backgroundColor: "transparent",
+    position: "relative",
+    overflow: "hidden",
   },
   scanText: {
     color: "white",
@@ -701,5 +771,12 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  scanLoadingBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    height: 4,
+    backgroundColor: "#FF9500",
   },
 });
