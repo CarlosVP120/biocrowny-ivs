@@ -26,6 +26,12 @@ export default function HomeScreen() {
     return orderPriority[a.status] - orderPriority[b.status];
   });
 
+  const orderLabels = {
+    pending: "⏳ Pendiente",
+    in_progress: "⚙️ En proceso",
+    completed: "✅ Listo para enviar",
+  };
+
   const handleTakeNextOrder = () => {
     const nextPendingOrder = orders.find((order) => order.status === "pending");
     if (nextPendingOrder) {
@@ -87,11 +93,7 @@ export default function HomeScreen() {
                       : styles.statusCompleted,
                   ]}
                 >
-                  {order.status === "pending"
-                    ? "⏳ Pendiente"
-                    : order.status === "in_progress"
-                    ? "✅ Listo para enviar"
-                    : "✅ Listo para enviar"}
+                  {orderLabels[order.status]}
                 </ThemedText>
               </View>
 
