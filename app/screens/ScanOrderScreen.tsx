@@ -23,7 +23,7 @@ import {
 import { useOrdersStore } from "../store/orderStore";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
-const DRAWER_HEIGHT = SCREEN_HEIGHT * 0.7;
+const DRAWER_HEIGHT = SCREEN_HEIGHT * 0.85;
 
 export default function ScanOrderScreen() {
   const router = useRouter();
@@ -40,6 +40,9 @@ export default function ScanOrderScreen() {
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState<"success" | "error">("success");
   const [allProductsScanned, setAllProductsScanned] = useState(false);
+  const [lastScannedProductId, setLastScannedProductId] = useState<
+    string | null
+  >(null);
 
   // Animación del drawer
   const drawerAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -99,6 +102,9 @@ export default function ScanOrderScreen() {
     }).start(() => {
       setIsScanning(false);
       setScanned(false);
+      setIsInCooldown(false);
+      scanFrameColorAnim.setValue(0);
+      scanLoadingAnim.setValue(0);
     });
   };
 
@@ -117,12 +123,9 @@ export default function ScanOrderScreen() {
         // Verificar si todos los productos han sido escaneados
         const allScanned = currentOrder?.products.every((p) => p.scanned);
         if (allScanned) {
-          closeDrawer();
-        } else {
-          setScanned(false);
+          setAllProductsScanned(true);
+          // No resetear el estado de escaneado aquí, ya que queremos mostrar el mensaje de completado
         }
-      } else {
-        setScanned(false);
       }
     }, 2000);
   };
@@ -139,6 +142,14 @@ export default function ScanOrderScreen() {
     });
 
     if (productToUpdate) {
+      // Set the last scanned product ID for highlighting
+      setLastScannedProductId(productToUpdate.id);
+
+      // Clear the highlight after the cooldown period
+      setTimeout(() => {
+        setLastScannedProductId(null);
+      }, 2000);
+
       const updatedOrder = {
         ...currentOrder,
         products: currentOrder.products.map((product) =>
@@ -428,6 +439,128 @@ export default function ScanOrderScreen() {
           </TouchableOpacity>
           <ThemedText type="subtitle">Escanear Código</ThemedText>
         </View>
+
+        {/* Pending Items List */}
+        {isScanning && currentOrder && (
+          <View
+            style={[
+              styles.pendingItemsContainer,
+              { borderBottomColor: colors.border },
+            ]}
+          >
+            <View style={styles.pendingItemsHeader}>
+              <Ionicons
+                name="list-outline"
+                size={18}
+                color={isDark ? colors.text : "#6C757D"}
+              />
+              <ThemedText
+                type="defaultSemiBold"
+                style={styles.pendingItemsTitle}
+              >
+                Productos pendientes por escanear:
+              </ThemedText>
+            </View>
+
+            {currentOrder.products.filter(
+              (product) => product.scannedCount < product.quantity
+            ).length === 0 ? (
+              <View style={styles.allScannedContainer}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={24}
+                  color={colors.success}
+                />
+                <ThemedText
+                  style={[styles.allScannedText, { color: colors.success }]}
+                >
+                  ¡Todos los productos han sido escaneados!
+                </ThemedText>
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.pendingItemsList}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.pendingItemsScroll}
+              >
+                {currentOrder.products
+                  .filter((product) => product.scannedCount < product.quantity)
+                  .map((product) => (
+                    <View
+                      key={product.id}
+                      style={[
+                        styles.pendingItemCard,
+                        {
+                          backgroundColor: isDark
+                            ? colors.card
+                            : colors.background,
+                          borderColor: colors.border,
+                        },
+                        product.id === lastScannedProductId && {
+                          borderColor: colors.primary,
+                          backgroundColor: isDark
+                            ? `${colors.primary}20`
+                            : `${colors.primary}10`,
+                          transform: [{ scale: 1.02 }],
+                        },
+                      ]}
+                    >
+                      <View style={styles.pendingItemTop}>
+                        <ThemedText
+                          style={[
+                            styles.pendingItemName,
+                            {
+                              color: isDark ? colors.text : "#333333",
+                              fontWeight: "600",
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {product.name}
+                        </ThemedText>
+                        <View
+                          style={[
+                            styles.pendingItemQuantity,
+                            { backgroundColor: colors.primary },
+                          ]}
+                        >
+                          <ThemedText style={styles.pendingItemQuantityText}>
+                            {product.quantity - product.scannedCount}
+                          </ThemedText>
+                        </View>
+                      </View>
+                      <View style={styles.pendingItemBottom}>
+                        <View style={styles.pendingItemSku}>
+                          <Ionicons
+                            name="barcode-outline"
+                            size={14}
+                            color={isDark ? colors.text : "#6C757D"}
+                            style={styles.pendingItemSkuIcon}
+                          />
+                          <ThemedText
+                            style={[
+                              styles.pendingItemSkuText,
+                              { color: isDark ? "#BBBBBB" : "#6C757D" },
+                            ]}
+                          >
+                            SKU: {product.sku}
+                          </ThemedText>
+                        </View>
+                        <ThemedText
+                          style={[
+                            styles.pendingItemProgress,
+                            { color: isDark ? "#BBBBBB" : "#6C757D" },
+                          ]}
+                        >
+                          {product.scannedCount}/{product.quantity}
+                        </ThemedText>
+                      </View>
+                    </View>
+                  ))}
+              </ScrollView>
+            )}
+          </View>
+        )}
 
         {isScanning && permission?.granted && (
           <View style={styles.cameraContainer}>
@@ -778,5 +911,92 @@ const styles = StyleSheet.create({
     left: 0,
     height: 4,
     backgroundColor: "#FF9500",
+  },
+  pendingItemsContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    maxHeight: 180, // Reduced height to ensure camera is more visible
+  },
+  pendingItemsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  pendingItemsTitle: {
+    marginLeft: 8,
+  },
+  pendingItemsList: {
+    maxHeight: 130,
+  },
+  pendingItemsScroll: {
+    paddingRight: 4,
+    paddingBottom: 4,
+  },
+  pendingItemCard: {
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.18,
+    shadowRadius: 1.0,
+    elevation: 1,
+  },
+  pendingItemTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  pendingItemBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  pendingItemName: {
+    fontSize: 16,
+    flex: 1,
+    marginRight: 8,
+  },
+  pendingItemSku: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  pendingItemSkuIcon: {
+    marginRight: 4,
+  },
+  pendingItemSkuText: {
+    fontSize: 13,
+  },
+  pendingItemProgress: {
+    fontSize: 13,
+  },
+  pendingItemQuantity: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pendingItemQuantityText: {
+    color: "white",
+    fontSize: 13,
+    fontWeight: "bold",
+  },
+  allScannedContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+  },
+  allScannedText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
