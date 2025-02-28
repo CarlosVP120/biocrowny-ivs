@@ -46,11 +46,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="scanOrder"
         options={{
-          title: "Explore",
+          title: "Scan Order",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
+            <IconSymbol size={28} name="qrcode" color={color} />
           ),
         }}
       />

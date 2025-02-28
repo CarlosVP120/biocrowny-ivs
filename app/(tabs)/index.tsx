@@ -114,6 +114,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    paddingBottom: 36,
   },
   container: {
     flex: 1,
