@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import { StyleSheet, View, TouchableOpacity, Alert, ActivityIndicator, SafeAreaView, StatusBar } from "react-native";
 import { useRouter } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -96,67 +96,82 @@ export default function DeliveryScanScreen() {
 
   if (!permission?.granted) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedText style={styles.text}>Se requiere acceso a la cámara</ThemedText>
-        <TouchableOpacity style={styles.button} onPress={requestPermission}>
-          <ThemedText style={styles.buttonText}>Solicitar permiso</ThemedText>
-        </TouchableOpacity>
-      </ThemedView>
+      <SafeAreaView style={styles.safeArea}>
+        <ThemedView style={styles.container}>
+          <ThemedText style={styles.text}>Se requiere acceso a la cámara</ThemedText>
+          <TouchableOpacity style={styles.button} onPress={requestPermission}>
+            <ThemedText style={styles.buttonText}>Solicitar permiso</ThemedText>
+          </TouchableOpacity>
+        </ThemedView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <ThemedText style={styles.title}>Escanear para entrega</ThemedText>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <ThemedView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <ThemedText style={styles.title}>Escanear para entrega</ThemedText>
+        </View>
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0066CC" />
-          <ThemedText style={styles.loadingText}>Procesando...</ThemedText>
-        </View>
-      ) : (
-        <View style={styles.cameraContainer}>
-          <CameraView
-            style={styles.camera}
-            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-            barcodeScannerSettings={{
-              barcodeTypes: ["qr"],
-            }}
-          >
-            <View style={styles.scanFrameContainer}>
-              <View style={styles.scanFrame} />
-              <ThemedText style={styles.scanInstructions}>
-                Coloca el código QR dentro del marco
-              </ThemedText>
-            </View>
-          </CameraView>
-        </View>
-      )}
-    </ThemedView>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#0066CC" />
+            <ThemedText style={styles.loadingText}>Procesando...</ThemedText>
+          </View>
+        ) : (
+          <View style={styles.cameraContainer}>
+            <CameraView
+              style={styles.camera}
+              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              barcodeScannerSettings={{
+                barcodeTypes: ["qr"],
+              }}
+            >
+              <View style={styles.scanFrameContainer}>
+                <View style={styles.scanFrame} />
+                <ThemedText style={styles.scanInstructions}>
+                  Coloca el código QR dentro del marco
+                </ThemedText>
+              </View>
+            </CameraView>
+          </View>
+        )}
+      </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
   container: {
     flex: 1,
+    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#ffffff',
   },
   backButton: {
-    padding: 10,
+    padding: 8,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginLeft: 10,
+    fontSize: 20,
+    fontWeight: "600",
+    marginLeft: 12,
+    color: '#000000',
   },
   text: {
     fontSize: 18,

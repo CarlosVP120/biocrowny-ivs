@@ -9,6 +9,9 @@ import {
   useColorScheme,
   Modal,
   Easing,
+  SafeAreaView,
+  StatusBar,
+  Platform,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
@@ -21,9 +24,10 @@ import {
   BarcodeScanningResult,
 } from "expo-camera";
 import { useOrdersStore } from "../store/orderStore";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
-const DRAWER_HEIGHT = SCREEN_HEIGHT * 0.85;
+const DRAWER_HEIGHT = SCREEN_HEIGHT * 0.90;
 
 export default function ScanOrderScreen() {
   const router = useRouter();
@@ -78,6 +82,8 @@ export default function ScanOrderScreen() {
       });
     }
   }, [isInCooldown]);
+
+  const insets = useSafeAreaInsets();
 
   const openDrawer = async () => {
     if (!permission?.granted) {
@@ -291,54 +297,49 @@ export default function ScanOrderScreen() {
   });
 
   return (
-    <ThemedView
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="#007AFF" />
-          <ThemedText style={styles.backText}>Volver</ThemedText>
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
+      <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
+            <ThemedText style={[styles.backText, { color: colors.primary }]}>Volver</ThemedText>
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.orderInfo}>
-        <ThemedText type="title">Pedido: {currentOrder.id}</ThemedText>
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${progress}%` }]} />
+        <ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 140 }}
+        >
+          <View style={styles.orderInfo}>
+            <ThemedText style={styles.orderId}>Pedido: {currentOrder.id}</ThemedText>
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors.primary }]} />
+              </View>
+              <ThemedText style={[styles.progressText, { color: colors.text }]}>
+                {scannedProducts} de {currentOrder.products.length} productos escaneados
+              </ThemedText>
+            </View>
+            <View style={styles.orderDetails}>
+              <ThemedText style={{ color: colors.text }}>📦 Almacén: {currentOrder.warehouse}</ThemedText>
+              <ThemedText style={{ color: colors.text }}>
+                📅 Fecha estimada: {currentOrder.estimatedDate}
+              </ThemedText>
+            </View>
           </View>
-          <ThemedText style={styles.progressText}>
-            {scannedProducts} de {currentOrder.products.length} productos
-            escaneados
-          </ThemedText>
-        </View>
-        <View style={styles.orderDetails}>
-          <ThemedText>📦 Almacén: {currentOrder.warehouse}</ThemedText>
-          <ThemedText>
-            📅 Fecha estimada: {currentOrder.estimatedDate}
-          </ThemedText>
-        </View>
-      </View>
 
-      <ThemedText type="subtitle" style={styles.sectionTitle}>
-        Productos a escanear
-      </ThemedText>
+          <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>
+            Productos a escanear
+          </ThemedText>
 
-      <View
-        style={[
-          styles.scrollContainer,
-          { marginBottom: allProductsScanned ? 150 : 0 },
-        ]}
-      >
-        <ScrollView
-          style={styles.productList}
-          contentContainerStyle={styles.scrollContent}
-        >
           {currentOrder.products.map((product) => (
-            <TouchableOpacity
+            <View
               key={product.id}
               style={[
                 styles.productItem,
@@ -354,7 +355,6 @@ export default function ScanOrderScreen() {
             >
               <View style={styles.productHeader}>
                 <ThemedText
-                  type="defaultSemiBold"
                   style={[styles.productName, { color: colors.text }]}
                 >
                   {product.name}
@@ -382,12 +382,12 @@ export default function ScanOrderScreen() {
                 </View>
               </View>
               <View style={styles.productDetails}>
-                <ThemedText>🏷️ SKU (escanear): {product.sku}</ThemedText>
-                <ThemedText>
+                <ThemedText style={{ color: colors.text }}>🏷️ SKU (escanear): {product.sku}</ThemedText>
+                <ThemedText style={{ color: colors.text }}>
                   📦 Escaneados: {product.scannedCount}/{product.quantity}
                 </ThemedText>
                 <View style={styles.scanProgress}>
-                  <View style={styles.scanProgressBar}>
+                  <View style={[styles.scanProgressBar, { backgroundColor: isDark ? '#333' : '#E9ECEF' }]}>
                     <View
                       style={[
                         styles.scanProgressFill,
@@ -402,321 +402,339 @@ export default function ScanOrderScreen() {
                   </View>
                 </View>
               </View>
-            </TouchableOpacity>
+            </View>
           ))}
+        </ScrollView>
 
-          <View style={styles.scanButtonContainer}>
+        <View style={[
+          styles.bottomContainer, 
+          { 
+            borderTopColor: colors.border,
+            paddingBottom: insets.bottom + 30
+          }
+        ]}>
+          {allProductsScanned ? (
+            <TouchableOpacity
+              style={[styles.completeOrderButton, { backgroundColor: colors.success }]}
+              onPress={handleCompleteOrder}
+            >
+              <Ionicons name="checkmark-circle" size={24} color="white" />
+              <ThemedText style={styles.buttonText}>
+                Confirmar Pedido Completado
+              </ThemedText>
+            </TouchableOpacity>
+          ) : (
             <TouchableOpacity
               style={[styles.scanButton, { backgroundColor: colors.primary }]}
               onPress={openDrawer}
             >
-              <Ionicons name="scan-outline" size={32} color="white" />
-              <ThemedText style={styles.scanButtonText}>
+              <Ionicons name="scan-outline" size={24} color="white" />
+              <ThemedText style={styles.buttonText}>
                 Comenzar a Escanear Productos
               </ThemedText>
             </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </View>
-
-      {allProductsScanned && (
-        <View style={styles.completeOrderContainer}>
-          <TouchableOpacity
-            style={styles.completeOrderButton}
-            onPress={handleCompleteOrder}
-          >
-            <Ionicons name="checkmark-circle" size={24} color="white" />
-            <ThemedText style={styles.completeOrderText}>
-              Confirmar Pedido Completado
-            </ThemedText>
-          </TouchableOpacity>
+          )}
         </View>
-      )}
 
-      <Animated.View
-        style={[
-          styles.drawer,
-          {
-            transform: [{ translateY: drawerAnim }],
-            backgroundColor: colors.background,
-          },
-        ]}
-      >
-        <View
-          style={[styles.drawerHeader, { borderBottomColor: colors.border }]}
+        <Animated.View
+          style={[
+            styles.drawer,
+            {
+              transform: [{ translateY: drawerAnim }],
+              backgroundColor: colors.background,
+            },
+          ]}
         >
-          <TouchableOpacity onPress={closeDrawer} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <ThemedText type="subtitle">Escanear Código</ThemedText>
-        </View>
-
-        {/* Pending Items List */}
-        {isScanning && currentOrder && (
           <View
-            style={[
-              styles.pendingItemsContainer,
-              { borderBottomColor: colors.border },
-            ]}
+            style={[styles.drawerHeader, { borderBottomColor: colors.border }]}
           >
-            <View style={styles.pendingItemsHeader}>
-              <Ionicons
-                name="list-outline"
-                size={18}
-                color={isDark ? colors.text : "#6C757D"}
-              />
-              <ThemedText
-                type="defaultSemiBold"
-                style={styles.pendingItemsTitle}
-              >
-                Productos pendientes por escanear:
-              </ThemedText>
-            </View>
+            <TouchableOpacity onPress={closeDrawer} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color={colors.primary} />
+            </TouchableOpacity>
+            <ThemedText type="subtitle">Escanear Código</ThemedText>
+          </View>
 
-            {currentOrder.products.filter(
-              (product) => product.scannedCount < product.quantity
-            ).length === 0 ? (
-              <View style={styles.allScannedContainer}>
+          {/* Pending Items List */}
+          {isScanning && currentOrder && (
+            <View
+              style={[
+                styles.pendingItemsContainer,
+                { borderBottomColor: colors.border },
+              ]}
+            >
+              <View style={styles.pendingItemsHeader}>
                 <Ionicons
-                  name="checkmark-circle"
-                  size={24}
-                  color={colors.success}
+                  name="list-outline"
+                  size={18}
+                  color={isDark ? colors.text : "#6C757D"}
                 />
                 <ThemedText
-                  style={[styles.allScannedText, { color: colors.success }]}
+                  type="defaultSemiBold"
+                  style={styles.pendingItemsTitle}
                 >
-                  ¡Todos los productos han sido escaneados!
+                  Productos pendientes por escanear:
                 </ThemedText>
               </View>
-            ) : (
-              <ScrollView
-                style={styles.pendingItemsList}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.pendingItemsScroll}
-              >
-                {currentOrder.products
-                  .filter((product) => product.scannedCount < product.quantity)
-                  .map((product) => (
-                    <View
-                      key={product.id}
-                      style={[
-                        styles.pendingItemCard,
-                        {
-                          backgroundColor: isDark
-                            ? colors.card
-                            : colors.background,
-                          borderColor: colors.border,
-                        },
-                        product.id === lastScannedProductId && {
-                          borderColor: colors.primary,
-                          backgroundColor: isDark
-                            ? `${colors.primary}20`
-                            : `${colors.primary}10`,
-                          transform: [{ scale: 1.02 }],
-                        },
-                      ]}
-                    >
-                      <View style={styles.pendingItemTop}>
-                        <ThemedText
-                          style={[
-                            styles.pendingItemName,
-                            {
-                              color: isDark ? colors.text : "#333333",
-                              fontWeight: "600",
-                            },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {product.name}
-                        </ThemedText>
-                        <View
-                          style={[
-                            styles.pendingItemQuantity,
-                            { backgroundColor: colors.primary },
-                          ]}
-                        >
-                          <ThemedText style={styles.pendingItemQuantityText}>
-                            {product.quantity - product.scannedCount}
-                          </ThemedText>
-                        </View>
-                      </View>
-                      <View style={styles.pendingItemBottom}>
-                        <View style={styles.pendingItemSku}>
-                          <Ionicons
-                            name="barcode-outline"
-                            size={14}
-                            color={isDark ? colors.text : "#6C757D"}
-                            style={styles.pendingItemSkuIcon}
-                          />
+
+              {currentOrder.products.filter(
+                (product) => product.scannedCount < product.quantity
+              ).length === 0 ? (
+                <View style={styles.allScannedContainer}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={24}
+                    color={colors.success}
+                  />
+                  <ThemedText
+                    style={[styles.allScannedText, { color: colors.success }]}
+                  >
+                    ¡Todos los productos han sido escaneados!
+                  </ThemedText>
+                </View>
+              ) : (
+                <ScrollView
+                  style={styles.pendingItemsList}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.pendingItemsScroll}
+                >
+                  {currentOrder.products
+                    .filter((product) => product.scannedCount < product.quantity)
+                    .map((product) => (
+                      <View
+                        key={product.id}
+                        style={[
+                          styles.pendingItemCard,
+                          {
+                            backgroundColor: isDark
+                              ? colors.card
+                              : colors.background,
+                            borderColor: colors.border,
+                          },
+                          product.id === lastScannedProductId && {
+                            borderColor: colors.primary,
+                            backgroundColor: isDark
+                              ? `${colors.primary}20`
+                              : `${colors.primary}10`,
+                            transform: [{ scale: 1.02 }],
+                          },
+                        ]}
+                      >
+                        <View style={styles.pendingItemTop}>
                           <ThemedText
                             style={[
-                              styles.pendingItemSkuText,
+                              styles.pendingItemName,
+                              {
+                                color: isDark ? colors.text : "#333333",
+                                fontWeight: "600",
+                              },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {product.name}
+                          </ThemedText>
+                          <View
+                            style={[
+                              styles.pendingItemQuantity,
+                              { backgroundColor: colors.primary },
+                            ]}
+                          >
+                            <ThemedText style={styles.pendingItemQuantityText}>
+                              {product.quantity - product.scannedCount}
+                            </ThemedText>
+                          </View>
+                        </View>
+                        <View style={styles.pendingItemBottom}>
+                          <View style={styles.pendingItemSku}>
+                            <Ionicons
+                              name="barcode-outline"
+                              size={14}
+                              color={isDark ? colors.text : "#6C757D"}
+                              style={styles.pendingItemSkuIcon}
+                            />
+                            <ThemedText
+                              style={[
+                                styles.pendingItemSkuText,
+                                { color: isDark ? "#BBBBBB" : "#6C757D" },
+                              ]}
+                            >
+                              SKU: {product.sku}
+                            </ThemedText>
+                          </View>
+                          <ThemedText
+                            style={[
+                              styles.pendingItemProgress,
                               { color: isDark ? "#BBBBBB" : "#6C757D" },
                             ]}
                           >
-                            SKU: {product.sku}
+                            {product.scannedCount}/{product.quantity}
                           </ThemedText>
                         </View>
-                        <ThemedText
-                          style={[
-                            styles.pendingItemProgress,
-                            { color: isDark ? "#BBBBBB" : "#6C757D" },
-                          ]}
-                        >
-                          {product.scannedCount}/{product.quantity}
-                        </ThemedText>
                       </View>
-                    </View>
-                  ))}
-              </ScrollView>
-            )}
-          </View>
-        )}
-
-        {isScanning && permission?.granted && (
-          <View style={styles.cameraContainer}>
-            <CameraView
-              style={styles.camera}
-              facing="back"
-              barcodeScannerSettings={{
-                barcodeTypes: [
-                  "qr",
-                  "pdf417",
-                  "aztec",
-                  "code128",
-                  "code39",
-                  "ean13",
-                  "upc_e",
-                ],
-              }}
-              onBarcodeScanned={
-                scanned || isInCooldown ? undefined : handleBarCodeScanned
-              }
-            />
-            <View style={styles.overlay}>
-              <Animated.View
-                style={[
-                  styles.scanFrame,
-                  { borderColor: scanFrameBorderColor },
-                ]}
-              >
-                {isInCooldown && (
-                  <Animated.View
-                    style={[
-                      styles.scanLoadingBar,
-                      {
-                        width: scanLoadingAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: ["0%", "100%"],
-                        }),
-                        backgroundColor: colors.orange,
-                      },
-                    ]}
-                  />
-                )}
-              </Animated.View>
-              <ThemedText style={styles.scanText}>
-                {isInCooldown
-                  ? "Procesando código escaneado..."
-                  : "Posiciona el código de barras dentro del marco"}
-              </ThemedText>
+                    ))}
+                </ScrollView>
+              )}
             </View>
-            {scanned && !isInCooldown && (
-              <TouchableOpacity
-                style={styles.rescanButton}
-                onPress={handleRescan}
-              >
-                <ThemedText style={styles.rescanText}>
-                  Tocar para escanear otro producto
-                </ThemedText>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-      </Animated.View>
+          )}
 
-      {/* Modal personalizado */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalContent,
-              {
-                backgroundColor:
-                  modalType === "success" ? colors.successBg : colors.warningBg,
-              },
-            ]}
-          >
-            <ThemedText
+          {isScanning && permission?.granted && (
+            <View style={styles.cameraContainer}>
+              <CameraView
+                style={styles.camera}
+                facing="back"
+                barcodeScannerSettings={{
+                  barcodeTypes: [
+                    "qr",
+                    "pdf417",
+                    "aztec",
+                    "code128",
+                    "code39",
+                    "ean13",
+                    "upc_e",
+                  ],
+                }}
+                onBarcodeScanned={
+                  scanned || isInCooldown ? undefined : handleBarCodeScanned
+                }
+              />
+              <View style={styles.overlay}>
+                <Animated.View
+                  style={[
+                    styles.scanFrame,
+                    { borderColor: scanFrameBorderColor },
+                  ]}
+                >
+                  {isInCooldown && (
+                    <Animated.View
+                      style={[
+                        styles.scanLoadingBar,
+                        {
+                          width: scanLoadingAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ["0%", "100%"],
+                          }),
+                          backgroundColor: colors.orange,
+                        },
+                      ]}
+                    />
+                  )}
+                </Animated.View>
+                <ThemedText style={styles.scanText}>
+                  {isInCooldown
+                    ? "Procesando código escaneado..."
+                    : "Posiciona el código de barras dentro del marco"}
+                </ThemedText>
+              </View>
+              {scanned && !isInCooldown && (
+                <TouchableOpacity
+                  style={styles.rescanButton}
+                  onPress={handleRescan}
+                >
+                  <ThemedText style={styles.rescanText}>
+                    Tocar para escanear otro producto
+                  </ThemedText>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </Animated.View>
+
+        {/* Modal personalizado */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View
               style={[
-                styles.modalText,
+                styles.modalContent,
                 {
-                  color:
-                    modalType === "success" ? colors.success : colors.warning,
+                  backgroundColor:
+                    modalType === "success" ? colors.successBg : colors.warningBg,
                 },
               ]}
             >
-              {modalMessage}
-            </ThemedText>
+              <ThemedText
+                style={[
+                  styles.modalText,
+                  {
+                    color:
+                      modalType === "success" ? colors.success : colors.warning,
+                  },
+                ]}
+              >
+                {modalMessage}
+              </ThemedText>
+            </View>
           </View>
-        </View>
-      </Modal>
-    </ThemedView>
+        </Modal>
+      </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 2,
+    paddingVertical: 1,
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+  },
+  backText: {
+    fontSize: 17,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  content: {
     flex: 1,
     padding: 16,
   },
-  header: {
-    marginBottom: 20,
-  },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  backText: {
-    color: "#007AFF",
-    marginLeft: 8,
-    fontSize: 16,
-  },
   orderInfo: {
     marginBottom: 24,
-    gap: 16,
+  },
+  orderId: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 16,
+    marginTop: 10,
   },
   orderDetails: {
+    marginTop: 12,
     gap: 4,
   },
   progressContainer: {
     gap: 8,
   },
   progressBar: {
-    height: 8,
+    height: 6,
     backgroundColor: "#E9ECEF",
-    borderRadius: 4,
+    borderRadius: 3,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
-    backgroundColor: "#28A745",
-    borderRadius: 4,
+    borderRadius: 3,
   },
   progressText: {
     fontSize: 14,
-    color: "#6C757D",
   },
   sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
     marginBottom: 16,
-  },
-  productList: {
-    flex: 1,
   },
   productItem: {
     padding: 16,
@@ -733,49 +751,75 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   productName: {
+    fontSize: 16,
+    fontWeight: "600",
     flex: 1,
-    marginRight: 8,
+    marginRight: 12,
   },
   productDetails: {
-    gap: 4,
+    gap: 6,
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
   },
-  statusPending: {
-    backgroundColor: "#FFF3CD",
-  },
-  statusScanned: {
-    backgroundColor: "#D4EDDA",
-  },
   statusText: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: "600",
   },
-  scrollContent: {
-    paddingBottom: 100, // Espacio para el botón
+  scanProgress: {
+    marginTop: 8,
   },
-  scanButtonContainer: {
+  scanProgressBar: {
+    height: 4,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  scanProgressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  bottomContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
     padding: 16,
-    marginTop: 16,
+    borderTopWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 5,
   },
   scanButton: {
-    backgroundColor: "#007AFF",
-    padding: 20,
-    borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    padding: 16,
+    borderRadius: 12,
     gap: 12,
   },
-  scanButtonText: {
+  completeOrderButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  buttonText: {
     color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 16,
+    fontWeight: "600",
   },
   drawer: {
     position: "absolute",
@@ -870,51 +914,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
     fontWeight: "600",
-  },
-  scanProgress: {
-    marginTop: 8,
-  },
-  scanProgressBar: {
-    height: 4,
-    backgroundColor: "#E9ECEF",
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  scanProgressFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  scrollContainer: {
-    flex: 1,
-  },
-  completeOrderContainer: {
-    position: "absolute",
-    bottom: 90,
-    left: 16,
-    right: 16,
-    paddingBottom: 16,
-  },
-  completeOrderButton: {
-    backgroundColor: "#28A745",
-    padding: 16,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  completeOrderText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
   },
   scanLoadingBar: {
     position: "absolute",
