@@ -1,6 +1,5 @@
 import { create } from "zustand";
-import { dummyOrders } from "../lib/orders";
-import { Order } from "../lib/orders";
+import { dummyOrders, Order } from "../lib/orders";
 
 interface OrderStore {
   orders: Order[];

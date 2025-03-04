@@ -54,6 +54,16 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="delivery"
+        options={{
+          title: "Deliveries",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="shippingbox.fill" color={color} />
+          ),
+          href: "/delivery-scan",
+        }}
+      />
     </Tabs>
   );
 }

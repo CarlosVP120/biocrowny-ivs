@@ -124,7 +124,12 @@ export default function ScanOrderScreen() {
         const allScanned = currentOrder?.products.every((p) => p.scanned);
         if (allScanned) {
           setAllProductsScanned(true);
-          // No resetear el estado de escaneado aquí, ya que queremos mostrar el mensaje de completado
+          // Redirigir a la pantalla del código QR después de un breve retraso
+          setTimeout(() => {
+            if (currentOrder) {
+              router.push(`/order-completed/${currentOrder.id}`);
+            }
+          }, 500);
         }
       }
     }, 2000);
@@ -233,16 +238,22 @@ export default function ScanOrderScreen() {
   };
 
   const handleCompleteOrder = () => {
-    const { orders, setOrders } = useOrdersStore.getState();
-    // Actualizar el estado del pedido a completado
-    setOrders(
-      orders.map((order) =>
-        order.id === currentOrder?.id
-          ? { ...order, status: "completed" }
-          : order
-      )
-    );
-    router.back();
+    if (currentOrder) {
+      const { orders, setOrders } = useOrdersStore.getState();
+      // Actualizar el estado del pedido a completado
+      setOrders(
+        orders.map((order) =>
+          order.id === currentOrder?.id
+            ? { ...order, status: "completed" as const }
+            : order
+        )
+      );
+      
+      // Redirigir a la pantalla del código QR en lugar de volver atrás
+      router.push(`/order-completed/${currentOrder.id}`);
+    } else {
+      router.back();
+    }
   };
 
   console.log("Order ID:", id); // Para debugging
