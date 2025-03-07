@@ -29,7 +29,8 @@ export default function HomeScreen() {
   const orderLabels = {
     pending: "⏳ Pendiente",
     in_progress: "⚙️ En proceso",
-    completed: "✅ Listo para enviar",
+    completed: "🚚 Listo para enviar",
+    delivered: "✅ Entregado",
   };
 
   const handleTakeNextOrder = () => {

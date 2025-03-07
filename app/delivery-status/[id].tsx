@@ -14,6 +14,12 @@ import { useOrdersStore } from "../store/orderStore";
 import { useClientsStore } from "../store/clientStore";
 import { Ionicons } from "@expo/vector-icons";
 import { Order } from "../lib/orders";
+import { sendOrderStatusNotificationWithFallback } from "../lib/twilioService";
+
+// Helper function to check if status is "delivered"
+const isDelivered = (status: Order["status"]): boolean => {
+  return status === "delivered";
+};
 
 export default function DeliveryStatusScreen() {
   const { id } = useLocalSearchParams();
@@ -46,9 +52,18 @@ export default function DeliveryStatusScreen() {
     setLoading(true);
 
     try {
-      // Actualizar el estado del pedido a "completed"
+      // Send notification to client
+      if (client) {
+        await sendOrderStatusNotificationWithFallback(
+          client,
+          order,
+          "entregado"
+        );
+      }
+
+      // Update order status to "delivered"
       const updatedOrders = orders.map((o) =>
-        o.id === id ? { ...o, status: "completed" as const } : o
+        o.id === id ? { ...o, status: "delivered" as const } : o
       );
 
       // Simular una espera para la actualización
@@ -79,28 +94,58 @@ export default function DeliveryStatusScreen() {
     }
   };
 
-  return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <ThemedText style={styles.title}>Estado de Entrega</ThemedText>
-      </View>
+  // Function to get status label in Spanish
+  const getStatusLabel = (status: Order["status"]) => {
+    switch (status) {
+      case "pending":
+        return "Pendiente";
+      case "in_progress":
+        return "En Progreso";
+      case "completed":
+        return "Completado";
+      case "delivered":
+        return "Entregado";
+      default:
+        return "Desconocido";
+    }
+  };
 
+  // Function to get status color
+  const getStatusColor = (status: Order["status"]) => {
+    switch (status) {
+      case "pending":
+        return "#8E8E93"; // Gray
+      case "in_progress":
+        return "#FF9500"; // Orange
+      case "completed":
+        return "#34C759"; // Green
+      case "delivered":
+        return "#007AFF"; // Blue
+      default:
+        return "#8E8E93"; // Default gray
+    }
+  };
+
+  const renderContent = () => {
+    const isOrderDelivered = order.status === "delivered";
+
+    return (
       <View style={styles.content}>
         <View style={styles.orderInfoContainer}>
           <ThemedText style={styles.orderLabel}>Pedido: {order.id}</ThemedText>
-          <ThemedText style={styles.statusLabel}>
-            Estado actual:
-            <ThemedText style={[styles.statusValue, { color: "#FF9500" }]}>
-              {" "}
-              En puerta
-            </ThemedText>
-          </ThemedText>
+          <View style={styles.statusContainer}>
+            <ThemedText style={styles.statusLabel}>Estado actual:</ThemedText>
+            <View
+              style={[
+                styles.statusBadge,
+                { backgroundColor: getStatusColor(order.status) },
+              ]}
+            >
+              <ThemedText style={styles.statusText}>
+                {getStatusLabel(order.status)}
+              </ThemedText>
+            </View>
+          </View>
 
           {client && (
             <View style={styles.clientInfoSection}>
@@ -133,8 +178,9 @@ export default function DeliveryStatusScreen() {
           )}
 
           <ThemedText style={styles.notificationText}>
-            Se ha notificado al cliente que su pedido se encuentra en la
-            dirección de entrega.
+            {isOrderDelivered
+              ? "El pedido ha sido entregado satisfactoriamente."
+              : "Se ha notificado al cliente que su pedido se encuentra en la dirección de entrega."}
           </ThemedText>
 
           <View style={styles.divider} />
@@ -142,31 +188,58 @@ export default function DeliveryStatusScreen() {
           <ThemedText style={styles.instructionTitle}>
             Instrucciones:
           </ThemedText>
-          <ThemedText style={styles.instruction}>
-            1. Entregue el pedido al cliente
-          </ThemedText>
-          <ThemedText style={styles.instruction}>
-            2. Una vez entregado, presione el botón "Completar entrega"
-          </ThemedText>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.completeButton, loading && styles.disabledButton]}
-          onPress={handleCompleteDelivery}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" size="small" />
+          {isOrderDelivered ? (
+            <ThemedText style={styles.instruction}>
+              El pedido ha sido entregado exitosamente y el cliente ha sido
+              notificado.
+            </ThemedText>
           ) : (
             <>
-              <Ionicons name="checkmark-circle" size={24} color="#fff" />
-              <ThemedText style={styles.completeButtonText}>
-                Completar entrega
+              <ThemedText style={styles.instruction}>
+                1. Entregue el pedido al cliente
+              </ThemedText>
+              <ThemedText style={styles.instruction}>
+                2. Una vez entregado, presione el botón "Completar entrega"
               </ThemedText>
             </>
           )}
-        </TouchableOpacity>
+        </View>
+
+        {!isOrderDelivered && (
+          <TouchableOpacity
+            style={[styles.completeButton, loading && styles.disabledButton]}
+            onPress={handleCompleteDelivery}
+            disabled={loading || isOrderDelivered}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={24} color="#fff" />
+                <ThemedText style={styles.completeButtonText}>
+                  Completar entrega
+                </ThemedText>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
+    );
+  };
+
+  return (
+    <ThemedView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <ThemedText style={styles.title}>Estado de Entrega</ThemedText>
+      </View>
+
+      {renderContent()}
     </ThemedView>
   );
 }
@@ -213,12 +286,24 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 10,
   },
-  statusLabel: {
-    fontSize: 18,
+  statusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 20,
   },
-  statusValue: {
+  statusLabel: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  statusText: {
+    color: "white",
     fontWeight: "bold",
+    fontSize: 14,
   },
   notificationText: {
     fontSize: 16,

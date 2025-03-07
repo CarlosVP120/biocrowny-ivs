@@ -14,7 +14,7 @@ export interface Order {
   warehouse: string;
   clientId: string;
   products: Product[];
-  status: "pending" | "in_progress" | "completed";
+  status: "pending" | "in_progress" | "completed" | "delivered";
 }
 
 export const dummyOrders: Order[] = [

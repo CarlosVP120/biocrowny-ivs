@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
+  Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
@@ -19,7 +20,7 @@ import {
   BarcodeScanningResult,
 } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
-import { sendOrderStatusSms } from "../lib/smsService";
+import { sendOrderStatusNotificationWithFallback } from "../lib/twilioService";
 
 export default function DeliveryScanScreen() {
   const router = useRouter();
@@ -27,8 +28,20 @@ export default function DeliveryScanScreen() {
   const [scanned, setScanned] = useState(false);
   const [scanCount, setScanCount] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(false);
+  const cooldownTimer = useRef<NodeJS.Timeout | null>(null);
+  const scanAnimation = useRef(new Animated.Value(0)).current;
   const { orders, setOrders } = useOrdersStore();
   const { getClientById } = useClientsStore();
+
+  // Clean up cooldown timer on unmount
+  useEffect(() => {
+    return () => {
+      if (cooldownTimer.current) {
+        clearTimeout(cooldownTimer.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -42,19 +55,48 @@ export default function DeliveryScanScreen() {
     })();
   }, []);
 
+  // Animation for the cooldown
+  useEffect(() => {
+    if (cooldown) {
+      // Reset and start animation
+      scanAnimation.setValue(0);
+      Animated.timing(scanAnimation, {
+        toValue: 1,
+        duration: 3000, // Match this with the cooldown time
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [cooldown, scanAnimation]);
+
+  const activateCooldown = () => {
+    setCooldown(true);
+
+    if (cooldownTimer.current) {
+      clearTimeout(cooldownTimer.current);
+    }
+
+    cooldownTimer.current = setTimeout(() => {
+      setCooldown(false);
+      setScanned(false);
+    }, 3000); // 3 seconds cooldown
+  };
+
   const handleBarCodeScanned = async (
     scanningResult: BarcodeScanningResult
   ) => {
-    if (scanned) return;
+    // Prevent scanning if already scanned or in cooldown
+    if (scanned || cooldown || loading) return;
 
+    // Immediately set scanned to true to prevent multiple scans
     setScanned(true);
+
     try {
       const { data } = scanningResult;
 
       // Verificar si el código escaneado tiene el formato correcto (order:ID)
       if (!data.startsWith("order:")) {
         Alert.alert("Error", "Código QR inválido");
-        setScanned(false);
+        activateCooldown();
         return;
       }
 
@@ -63,7 +105,7 @@ export default function DeliveryScanScreen() {
 
       if (!order) {
         Alert.alert("Error", "Pedido no encontrado");
-        setScanned(false);
+        activateCooldown();
         return;
       }
 
@@ -80,7 +122,7 @@ export default function DeliveryScanScreen() {
         Alert.alert(
           "Éxito",
           `Se ha notificado al cliente que su pedido ${orderId} está en camino`,
-          [{ text: "OK", onPress: () => setScanned(false) }]
+          [{ text: "OK", onPress: () => activateCooldown() }]
         );
       } else if (newCount === 2) {
         // Segunda lectura: Notificar al cliente que su pedido está en la puerta
@@ -88,22 +130,22 @@ export default function DeliveryScanScreen() {
         router.push(`/delivery-status/${orderId}`);
       } else {
         Alert.alert("Error", "Este QR ya ha sido escaneado dos veces", [
-          { text: "OK", onPress: () => setScanned(false) },
+          { text: "OK", onPress: () => activateCooldown() },
         ]);
       }
     } catch (error) {
       console.error("Error al escanear:", error);
       Alert.alert("Error", "Hubo un problema al procesar el código QR");
+      activateCooldown();
     } finally {
       setLoading(false);
-      setScanned(false);
     }
   };
 
   // Función para enviar notificación al cliente
   const sendDeliveryNotification = async (
     order: any,
-    status: "en_camino" | "en_puerta"
+    status: "en_camino" | "en_puerta" | "entregado"
   ) => {
     try {
       // Obtener la información del cliente
@@ -114,19 +156,33 @@ export default function DeliveryScanScreen() {
         return false;
       }
 
-      // Enviar SMS al cliente
-      const smsSent = await sendOrderStatusSms(client, order, status);
+      console.log(
+        `Intentando enviar SMS a ${client.name} (${client.phone}) para pedido ${order.id}`
+      );
 
-      if (!smsSent) {
-        console.warn(`No se pudo enviar SMS al cliente ${client.name}`);
+      // Enviar SMS usando Twilio con fallback a SMS del dispositivo si falla
+      const smsSent = await sendOrderStatusNotificationWithFallback(
+        client,
+        order,
+        status
+      );
+
+      if (smsSent) {
+        console.log(
+          `✅ SMS enviado exitosamente al cliente ${client.name} (${client.phone})`
+        );
+        // También podríamos registrar esto en analytics o en un log en la base de datos
+      } else {
+        console.warn(
+          `❌ No se pudo enviar SMS al cliente ${client.name} (${client.phone})`
+        );
+        // Aquí podríamos implementar un sistema de reintentos o notificar al personal
       }
 
-      console.log(
-        `Notificación enviada al cliente ${client.name}: Pedido ${order.id} está ${status}`
-      );
-      return true;
+      return smsSent;
     } catch (error) {
       console.error("Error al enviar notificación:", error);
+      // En un entorno de producción, aquí deberíamos registrar el error en un servicio como Sentry
       return false;
     }
   };
@@ -169,15 +225,43 @@ export default function DeliveryScanScreen() {
           <View style={styles.cameraContainer}>
             <CameraView
               style={styles.camera}
-              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              onBarcodeScanned={
+                scanned || cooldown ? undefined : handleBarCodeScanned
+              }
               barcodeScannerSettings={{
                 barcodeTypes: ["qr"],
               }}
             >
               <View style={styles.scanFrameContainer}>
-                <View style={styles.scanFrame} />
+                <View
+                  style={[
+                    styles.scanFrame,
+                    cooldown && styles.scanFrameCooldown,
+                  ]}
+                />
+
+                {cooldown && (
+                  <Animated.View
+                    style={[
+                      styles.cooldownOverlay,
+                      {
+                        opacity: scanAnimation.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.7, 0],
+                        }),
+                      },
+                    ]}
+                  >
+                    <ThemedText style={styles.cooldownText}>
+                      Enfriamiento...
+                    </ThemedText>
+                  </Animated.View>
+                )}
+
                 <ThemedText style={styles.scanInstructions}>
-                  Coloca el código QR dentro del marco
+                  {cooldown
+                    ? "Espere unos segundos antes de escanear otro código"
+                    : "Coloca el código QR dentro del marco"}
                 </ThemedText>
               </View>
             </CameraView>
@@ -238,6 +322,22 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#0066CC",
     backgroundColor: "transparent",
+  },
+  scanFrameCooldown: {
+    borderColor: "#FFA500",
+  },
+  cooldownOverlay: {
+    position: "absolute",
+    width: 250,
+    height: 250,
+    backgroundColor: "#FFA500",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cooldownText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "bold",
   },
   scanInstructions: {
     position: "absolute",

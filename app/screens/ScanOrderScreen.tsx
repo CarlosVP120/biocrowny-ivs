@@ -330,6 +330,38 @@ export default function ScanOrderScreen() {
     outputRange: [colors.primary, colors.orange],
   });
 
+  // Function to get status label in Spanish
+  const getStatusLabel = (status: Order["status"]) => {
+    switch (status) {
+      case "pending":
+        return "Pendiente";
+      case "in_progress":
+        return "En Progreso";
+      case "completed":
+        return "Completado";
+      case "delivered":
+        return "Entregado";
+      default:
+        return "Desconocido";
+    }
+  };
+
+  // Function to get status color
+  const getStatusColor = (status: Order["status"]) => {
+    switch (status) {
+      case "pending":
+        return "#8E8E93"; // Gray
+      case "in_progress":
+        return "#FF9500"; // Orange
+      case "completed":
+        return "#34C759"; // Green
+      case "delivered":
+        return "#007AFF"; // Blue
+      default:
+        return "#8E8E93"; // Default gray
+    }
+  };
+
   return (
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.background }]}
