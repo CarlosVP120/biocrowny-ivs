@@ -12,6 +12,7 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  Linking,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
@@ -24,10 +25,11 @@ import {
   BarcodeScanningResult,
 } from "expo-camera";
 import { useOrdersStore } from "../store/orderStore";
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useClientsStore } from "../store/clientStore";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
-const DRAWER_HEIGHT = SCREEN_HEIGHT * 0.90;
+const DRAWER_HEIGHT = SCREEN_HEIGHT * 0.9;
 
 export default function ScanOrderScreen() {
   const router = useRouter();
@@ -35,6 +37,10 @@ export default function ScanOrderScreen() {
   const [currentOrder, setCurrentOrder] = useState<Order | undefined>(
     dummyOrders.find((order) => order.id === id)
   );
+  const { getClientById } = useClientsStore();
+  const client = currentOrder
+    ? getClientById(currentOrder.clientId)
+    : undefined;
   const [isScanning, setIsScanning] = useState(false);
   const [scanned, setScanned] = useState(false);
   const [isInCooldown, setIsInCooldown] = useState(false);
@@ -254,11 +260,19 @@ export default function ScanOrderScreen() {
             : order
         )
       );
-      
+
       // Redirigir a la pantalla del código QR en lugar de volver atrás
       router.push(`/order-completed/${currentOrder.id}`);
     } else {
       router.back();
+    }
+  };
+
+  const handleCallClient = () => {
+    if (client?.phone) {
+      Linking.openURL(`tel:${client.phone}`);
+    } else {
+      alert("No hay número de teléfono disponible");
     }
   };
 
@@ -268,13 +282,33 @@ export default function ScanOrderScreen() {
   if (!currentOrder) {
     return (
       <ThemedView style={styles.container}>
-        <ThemedText>Pedido no encontrado</ThemedText>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.headerButton}
+          >
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <ThemedText style={styles.headerTitle}>Detalles de Orden</ThemedText>
+        </View>
+        <View style={styles.content}>
+          <ThemedText style={styles.errorText}>Orden no encontrada</ThemedText>
+        </View>
       </ThemedView>
     );
   }
 
-  const scannedProducts = currentOrder.products.filter((p) => p.scanned).length;
-  const progress = (scannedProducts / currentOrder.products.length) * 100;
+  // Calcular el progreso general
+  const totalProducts = currentOrder.products.reduce(
+    (acc, p) => acc + p.quantity,
+    0
+  );
+  const scannedTotal = currentOrder.products.reduce(
+    (acc, p) => acc + p.scannedCount,
+    0
+  );
+  const progressPercentage =
+    totalProducts > 0 ? (scannedTotal / totalProducts) * 100 : 0;
 
   const isDark = colorScheme === "dark";
   const colors = {
@@ -297,39 +331,143 @@ export default function ScanOrderScreen() {
   });
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
-      <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.background }]}
+    >
+      <StatusBar
+        barStyle={isDark ? "light-content" : "dark-content"}
+        backgroundColor={colors.background}
+      />
+      <ThemedView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: colors.background,
+              borderBottomColor: colors.border,
+            },
+          ]}
+        >
           <TouchableOpacity
             onPress={() => router.back()}
             style={styles.backButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons name="arrow-back" size={24} color={colors.primary} />
-            <ThemedText style={[styles.backText, { color: colors.primary }]}>Volver</ThemedText>
+            <ThemedText style={[styles.backText, { color: colors.primary }]}>
+              Volver
+            </ThemedText>
           </TouchableOpacity>
         </View>
 
-        <ScrollView 
-          style={styles.content} 
+        <ScrollView
+          style={styles.content}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 140 }}
         >
-          <View style={styles.orderInfo}>
-            <ThemedText style={styles.orderId}>Pedido: {currentOrder.id}</ThemedText>
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors.primary }]} />
-              </View>
-              <ThemedText style={[styles.progressText, { color: colors.text }]}>
-                {scannedProducts} de {currentOrder.products.length} productos escaneados
+          <View style={styles.orderInfoCard}>
+            <View style={styles.orderHeader}>
+              <ThemedText style={styles.orderId}>
+                Orden #{currentOrder.id}
+              </ThemedText>
+              <ThemedText
+                style={[
+                  styles.orderStatus,
+                  {
+                    backgroundColor:
+                      currentOrder.status === "completed"
+                        ? "#34C759"
+                        : currentOrder.status === "in_progress"
+                        ? "#FF9500"
+                        : "#8E8E93",
+                  },
+                ]}
+              >
+                {currentOrder.status === "completed"
+                  ? "Completado"
+                  : currentOrder.status === "in_progress"
+                  ? "En Progreso"
+                  : "Pendiente"}
               </ThemedText>
             </View>
+
             <View style={styles.orderDetails}>
-              <ThemedText style={{ color: colors.text }}>📦 Almacén: {currentOrder.warehouse}</ThemedText>
-              <ThemedText style={{ color: colors.text }}>
-                📅 Fecha estimada: {currentOrder.estimatedDate}
+              <View style={styles.orderDetailRow}>
+                <Ionicons name="calendar-outline" size={18} color="#666" />
+                <ThemedText style={styles.orderDetailText}>
+                  Fecha: {currentOrder.orderDate}
+                </ThemedText>
+              </View>
+              <View style={styles.orderDetailRow}>
+                <Ionicons name="time-outline" size={18} color="#666" />
+                <ThemedText style={styles.orderDetailText}>
+                  Entrega estimada: {currentOrder.estimatedDate}
+                </ThemedText>
+              </View>
+              <View style={styles.orderDetailRow}>
+                <Ionicons name="business-outline" size={18} color="#666" />
+                <ThemedText style={styles.orderDetailText}>
+                  Almacén: {currentOrder.warehouse}
+                </ThemedText>
+              </View>
+            </View>
+
+            {client && (
+              <View style={styles.clientSection}>
+                <ThemedText style={styles.sectionTitle}>Cliente</ThemedText>
+                <View style={styles.clientInfo}>
+                  <View style={styles.clientDetail}>
+                    <Ionicons name="person-outline" size={18} color="#666" />
+                    <ThemedText style={styles.clientDetailText}>
+                      {client.name}
+                    </ThemedText>
+                  </View>
+                  <TouchableOpacity
+                    onPress={handleCallClient}
+                    style={styles.clientDetail}
+                  >
+                    <Ionicons name="call-outline" size={18} color="#666" />
+                    <ThemedText
+                      style={[styles.clientDetailText, styles.phoneLink]}
+                    >
+                      {client.phone}
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <View style={styles.clientDetail}>
+                    <Ionicons name="mail-outline" size={18} color="#666" />
+                    <ThemedText style={styles.clientDetailText}>
+                      {client.email}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.clientDetail}>
+                    <Ionicons name="location-outline" size={18} color="#666" />
+                    <ThemedText style={styles.clientDetailText}>
+                      {client.address}
+                    </ThemedText>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.progressSection}>
+              <View style={styles.progressHeader}>
+                <ThemedText style={styles.progressTitle}>Progreso</ThemedText>
+                <ThemedText style={styles.progressPercentage}>
+                  {Math.round(progressPercentage)}%
+                </ThemedText>
+              </View>
+              <View style={styles.progressBarContainer}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    { width: `${progressPercentage}%` },
+                  ]}
+                />
+              </View>
+              <ThemedText style={styles.progressText}>
+                {scannedTotal} de {totalProducts} productos escaneados
               </ThemedText>
             </View>
           </View>
@@ -382,12 +520,19 @@ export default function ScanOrderScreen() {
                 </View>
               </View>
               <View style={styles.productDetails}>
-                <ThemedText style={{ color: colors.text }}>🏷️ SKU (escanear): {product.sku}</ThemedText>
+                <ThemedText style={{ color: colors.text }}>
+                  🏷️ SKU (escanear): {product.sku}
+                </ThemedText>
                 <ThemedText style={{ color: colors.text }}>
                   📦 Escaneados: {product.scannedCount}/{product.quantity}
                 </ThemedText>
                 <View style={styles.scanProgress}>
-                  <View style={[styles.scanProgressBar, { backgroundColor: isDark ? '#333' : '#E9ECEF' }]}>
+                  <View
+                    style={[
+                      styles.scanProgressBar,
+                      { backgroundColor: isDark ? "#333" : "#E9ECEF" },
+                    ]}
+                  >
                     <View
                       style={[
                         styles.scanProgressFill,
@@ -406,16 +551,21 @@ export default function ScanOrderScreen() {
           ))}
         </ScrollView>
 
-        <View style={[
-          styles.bottomContainer, 
-          { 
-            borderTopColor: colors.border,
-            paddingBottom: insets.bottom + 30
-          }
-        ]}>
+        <View
+          style={[
+            styles.bottomContainer,
+            {
+              borderTopColor: colors.border,
+              paddingBottom: insets.bottom + 30,
+            },
+          ]}
+        >
           {allProductsScanned ? (
             <TouchableOpacity
-              style={[styles.completeOrderButton, { backgroundColor: colors.success }]}
+              style={[
+                styles.completeOrderButton,
+                { backgroundColor: colors.success },
+              ]}
               onPress={handleCompleteOrder}
             >
               <Ionicons name="checkmark-circle" size={24} color="white" />
@@ -498,7 +648,9 @@ export default function ScanOrderScreen() {
                   contentContainerStyle={styles.pendingItemsScroll}
                 >
                   {currentOrder.products
-                    .filter((product) => product.scannedCount < product.quantity)
+                    .filter(
+                      (product) => product.scannedCount < product.quantity
+                    )
                     .map((product) => (
                       <View
                         key={product.id}
@@ -651,7 +803,9 @@ export default function ScanOrderScreen() {
                 styles.modalContent,
                 {
                   backgroundColor:
-                    modalType === "success" ? colors.successBg : colors.warningBg,
+                    modalType === "success"
+                      ? colors.successBg
+                      : colors.warningBg,
                 },
               ]}
             >
@@ -689,52 +843,100 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 8,
   },
   backText: {
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 8,
   },
   content: {
     flex: 1,
     padding: 16,
   },
-  orderInfo: {
+  orderInfoCard: {
     marginBottom: 24,
+  },
+  orderHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
   },
   orderId: {
     fontSize: 24,
     fontWeight: "700",
-    marginBottom: 16,
-    marginTop: 10,
+  },
+  orderStatus: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   orderDetails: {
     marginTop: 12,
     gap: 4,
   },
-  progressContainer: {
+  orderDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
-  progressBar: {
-    height: 6,
-    backgroundColor: "#E9ECEF",
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
-  progressText: {
+  orderDetailText: {
     fontSize: 14,
+  },
+  clientSection: {
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
     marginBottom: 16,
+  },
+  clientInfo: {
+    gap: 8,
+  },
+  clientDetail: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  clientDetailText: {
+    fontSize: 14,
+  },
+  phoneLink: {
+    color: "#007AFF",
+  },
+  progressSection: {
+    marginBottom: 24,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  progressTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  progressPercentage: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  progressBarContainer: {
+    height: 6,
+    backgroundColor: "#E9ECEF",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 14,
   },
   productItem: {
     padding: 16,
@@ -784,11 +986,11 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   bottomContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     padding: 16,
     borderTopWidth: 1,
     shadowColor: "#000",
@@ -1008,5 +1210,18 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
     fontWeight: "600",
+  },
+  headerButton: {
+    padding: 10,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginLeft: 10,
+  },
+  errorText: {
+    fontSize: 18,
+    textAlign: "center",
+    margin: 20,
   },
 });

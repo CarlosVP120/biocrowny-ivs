@@ -12,6 +12,7 @@ export interface Order {
   orderDate: string;
   estimatedDate: string;
   warehouse: string;
+  clientId: string;
   products: Product[];
   status: "pending" | "in_progress" | "completed";
 }
@@ -22,6 +23,7 @@ export const dummyOrders: Order[] = [
     orderDate: "2024-03-20",
     estimatedDate: "2024-03-22",
     warehouse: "Almacén Central",
+    clientId: "CLI001",
     status: "completed",
     products: [
       {
@@ -47,6 +49,7 @@ export const dummyOrders: Order[] = [
     orderDate: "2024-03-21",
     estimatedDate: "2024-03-23",
     warehouse: "Almacén Norte",
+    clientId: "CLI002",
     status: "in_progress",
     products: [
       {
@@ -64,6 +67,7 @@ export const dummyOrders: Order[] = [
     orderDate: "2024-03-21",
     estimatedDate: "2024-03-24",
     warehouse: "Almacén Sur",
+    clientId: "CLI003",
     status: "pending",
     products: [
       {

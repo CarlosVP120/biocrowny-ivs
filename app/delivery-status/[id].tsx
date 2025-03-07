@@ -1,9 +1,17 @@
 import React, { useState } from "react";
-import { StyleSheet, View, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
+import {
+  StyleSheet,
+  View,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Linking,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { useOrdersStore } from "../store/orderStore";
+import { useClientsStore } from "../store/clientStore";
 import { Ionicons } from "@expo/vector-icons";
 import { Order } from "../lib/orders";
 
@@ -11,15 +19,20 @@ export default function DeliveryStatusScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { orders, setOrders } = useOrdersStore();
+  const { getClientById } = useClientsStore();
   const [loading, setLoading] = useState(false);
-  
+
   const order = orders.find((o) => o.id === id);
+  const client = order ? getClientById(order.clientId) : undefined;
 
   if (!order) {
     return (
       <ThemedView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
             <Ionicons name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
           <ThemedText style={styles.title}>Estado de Entrega</ThemedText>
@@ -31,29 +44,25 @@ export default function DeliveryStatusScreen() {
 
   const handleCompleteDelivery = async () => {
     setLoading(true);
-    
+
     try {
       // Actualizar el estado del pedido a "completed"
       const updatedOrders = orders.map((o) =>
         o.id === id ? { ...o, status: "completed" as const } : o
       );
-      
+
       // Simular una espera para la actualización
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      
+
       // Actualizar el estado en la tienda
       setOrders(updatedOrders);
-      
-      Alert.alert(
-        "Éxito",
-        "Pedido marcado como entregado correctamente",
-        [
-          {
-            text: "OK",
-            onPress: () => router.push("/(tabs)"),
-          },
-        ]
-      );
+
+      Alert.alert("Éxito", "Pedido marcado como entregado correctamente", [
+        {
+          text: "OK",
+          onPress: () => router.push("/(tabs)"),
+        },
+      ]);
     } catch (error) {
       console.error("Error al completar entrega:", error);
       Alert.alert("Error", "No se pudo marcar el pedido como entregado");
@@ -62,10 +71,21 @@ export default function DeliveryStatusScreen() {
     }
   };
 
+  const handleCallClient = () => {
+    if (client?.phone) {
+      Linking.openURL(`tel:${client.phone}`);
+    } else {
+      Alert.alert("Error", "No hay número de teléfono disponible");
+    }
+  };
+
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <ThemedText style={styles.title}>Estado de Entrega</ThemedText>
@@ -75,19 +95,53 @@ export default function DeliveryStatusScreen() {
         <View style={styles.orderInfoContainer}>
           <ThemedText style={styles.orderLabel}>Pedido: {order.id}</ThemedText>
           <ThemedText style={styles.statusLabel}>
-            Estado actual: 
+            Estado actual:
             <ThemedText style={[styles.statusValue, { color: "#FF9500" }]}>
-              {" "}En puerta
+              {" "}
+              En puerta
             </ThemedText>
           </ThemedText>
-          
+
+          {client && (
+            <View style={styles.clientInfoSection}>
+              <ThemedText style={styles.sectionTitle}>
+                Información del Cliente:
+              </ThemedText>
+              <ThemedText style={styles.infoText}>
+                <ThemedText style={styles.infoLabel}>Nombre: </ThemedText>
+                {client.name}
+              </ThemedText>
+              <ThemedText style={styles.infoText}>
+                <ThemedText style={styles.infoLabel}>Teléfono: </ThemedText>
+                {client.phone}
+              </ThemedText>
+              <ThemedText style={styles.infoText}>
+                <ThemedText style={styles.infoLabel}>Dirección: </ThemedText>
+                {client.address}
+              </ThemedText>
+
+              <TouchableOpacity
+                style={styles.callButton}
+                onPress={handleCallClient}
+              >
+                <Ionicons name="call" size={20} color="#fff" />
+                <ThemedText style={styles.callButtonText}>
+                  Llamar al cliente
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <ThemedText style={styles.notificationText}>
-            Se ha notificado al cliente que su pedido se encuentra en la dirección de entrega.
+            Se ha notificado al cliente que su pedido se encuentra en la
+            dirección de entrega.
           </ThemedText>
 
           <View style={styles.divider} />
 
-          <ThemedText style={styles.instructionTitle}>Instrucciones:</ThemedText>
+          <ThemedText style={styles.instructionTitle}>
+            Instrucciones:
+          </ThemedText>
           <ThemedText style={styles.instruction}>
             1. Entregue el pedido al cliente
           </ThemedText>
@@ -204,4 +258,39 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginLeft: 10,
   },
-}); 
+  clientInfoSection: {
+    backgroundColor: "#ffffff",
+    borderRadius: 8,
+    padding: 15,
+    marginTop: 10,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  infoText: {
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  infoLabel: {
+    fontWeight: "600",
+  },
+  callButton: {
+    backgroundColor: "#007AFF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 15,
+  },
+  callButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+});

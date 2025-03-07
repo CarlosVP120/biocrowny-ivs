@@ -1,11 +1,25 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, TouchableOpacity, Alert, ActivityIndicator, SafeAreaView, StatusBar } from "react-native";
+import {
+  StyleSheet,
+  View,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  SafeAreaView,
+  StatusBar,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { useOrdersStore } from "../store/orderStore";
-import { CameraView, useCameraPermissions, BarcodeScanningResult } from "expo-camera";
+import { useClientsStore } from "../store/clientStore";
+import {
+  CameraView,
+  useCameraPermissions,
+  BarcodeScanningResult,
+} from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
+import { sendOrderStatusSms } from "../lib/smsService";
 
 export default function DeliveryScanScreen() {
   const router = useRouter();
@@ -14,51 +28,57 @@ export default function DeliveryScanScreen() {
   const [scanCount, setScanCount] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const { orders, setOrders } = useOrdersStore();
+  const { getClientById } = useClientsStore();
 
   useEffect(() => {
     (async () => {
       const cameraPermission = await requestPermission();
       if (!cameraPermission.granted) {
-        Alert.alert("Permiso requerido", "Se necesita permiso para acceder a la cámara");
+        Alert.alert(
+          "Permiso requerido",
+          "Se necesita permiso para acceder a la cámara"
+        );
       }
     })();
   }, []);
 
-  const handleBarCodeScanned = async (scanningResult: BarcodeScanningResult) => {
+  const handleBarCodeScanned = async (
+    scanningResult: BarcodeScanningResult
+  ) => {
     if (scanned) return;
-    
+
     setScanned(true);
     try {
       const { data } = scanningResult;
-      
+
       // Verificar si el código escaneado tiene el formato correcto (order:ID)
       if (!data.startsWith("order:")) {
         Alert.alert("Error", "Código QR inválido");
         setScanned(false);
         return;
       }
-      
+
       const orderId = data.split(":")[1];
-      const order = orders.find(o => o.id === orderId);
-      
+      const order = orders.find((o) => o.id === orderId);
+
       if (!order) {
         Alert.alert("Error", "Pedido no encontrado");
         setScanned(false);
         return;
       }
-      
+
       // Actualizar el contador de escaneos para este pedido
       const currentCount = scanCount[orderId] || 0;
       const newCount = currentCount + 1;
       setScanCount({ ...scanCount, [orderId]: newCount });
-      
+
       setLoading(true);
-      
+
       if (newCount === 1) {
         // Primera lectura: Notificar al cliente que su pedido está en camino
         await sendDeliveryNotification(order, "en_camino");
         Alert.alert(
-          "Éxito", 
+          "Éxito",
           `Se ha notificado al cliente que su pedido ${orderId} está en camino`,
           [{ text: "OK", onPress: () => setScanned(false) }]
         );
@@ -67,11 +87,9 @@ export default function DeliveryScanScreen() {
         await sendDeliveryNotification(order, "en_puerta");
         router.push(`/delivery-status/${orderId}`);
       } else {
-        Alert.alert(
-          "Error", 
-          "Este QR ya ha sido escaneado dos veces",
-          [{ text: "OK", onPress: () => setScanned(false) }]
-        );
+        Alert.alert("Error", "Este QR ya ha sido escaneado dos veces", [
+          { text: "OK", onPress: () => setScanned(false) },
+        ]);
       }
     } catch (error) {
       console.error("Error al escanear:", error);
@@ -83,22 +101,43 @@ export default function DeliveryScanScreen() {
   };
 
   // Función para enviar notificación al cliente
-  const sendDeliveryNotification = async (order: any, status: 'en_camino' | 'en_puerta') => {
-    // Aquí implementaríamos la lógica real para enviar notificaciones
-    // Por ahora solo simulamos una espera
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log(`Notificación enviada al cliente: Pedido ${order.id} está ${status}`);
-        resolve(true);
-      }, 1500);
-    });
+  const sendDeliveryNotification = async (
+    order: any,
+    status: "en_camino" | "en_puerta"
+  ) => {
+    try {
+      // Obtener la información del cliente
+      const client = getClientById(order.clientId);
+
+      if (!client) {
+        console.error(`Cliente no encontrado para el pedido ${order.id}`);
+        return false;
+      }
+
+      // Enviar SMS al cliente
+      const smsSent = await sendOrderStatusSms(client, order, status);
+
+      if (!smsSent) {
+        console.warn(`No se pudo enviar SMS al cliente ${client.name}`);
+      }
+
+      console.log(
+        `Notificación enviada al cliente ${client.name}: Pedido ${order.id} está ${status}`
+      );
+      return true;
+    } catch (error) {
+      console.error("Error al enviar notificación:", error);
+      return false;
+    }
   };
 
   if (!permission?.granted) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <ThemedView style={styles.container}>
-          <ThemedText style={styles.text}>Se requiere acceso a la cámara</ThemedText>
+          <ThemedText style={styles.text}>
+            Se requiere acceso a la cámara
+          </ThemedText>
           <TouchableOpacity style={styles.button} onPress={requestPermission}>
             <ThemedText style={styles.buttonText}>Solicitar permiso</ThemedText>
           </TouchableOpacity>
@@ -112,7 +151,10 @@ export default function DeliveryScanScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <ThemedView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
             <Ionicons name="arrow-back" size={24} color="#000" />
           </TouchableOpacity>
           <ThemedText style={styles.title}>Escanear para entrega</ThemedText>
@@ -149,11 +191,11 @@ export default function DeliveryScanScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
   },
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
   },
   header: {
     flexDirection: "row",
@@ -161,8 +203,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    backgroundColor: '#ffffff',
+    borderBottomColor: "#f0f0f0",
+    backgroundColor: "#ffffff",
   },
   backButton: {
     padding: 8,
@@ -171,7 +213,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     marginLeft: 12,
-    color: '#000000',
+    color: "#000000",
   },
   text: {
     fontSize: 18,
@@ -228,4 +270,4 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
   },
-}); 
+});
