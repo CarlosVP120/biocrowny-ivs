@@ -1,29 +1,36 @@
-import { StyleSheet, Text, View, TouchableOpacity, Image, Dimensions } from "react-native";
-import { useRouter } from "expo-router";
-import Animated, { FadeInDown, FadeInUp, FadeIn } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
-
-const { width } = Dimensions.get('window');
+import { StyleSheet, Text, View, TouchableOpacity, Image, Platform } from "react-native";
+import { useRouter, Redirect } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
 export default function Page() {
   const router = useRouter();
 
+  // Funciones de navegación simplificadas
+  const goToMainApp = () => {
+    router.push("/(tabs)");
+  };
+
+  const goToDeliveryScan = () => {
+    router.push("/delivery-scan");
+  };
+
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={['#ffffff', '#f8f9fa']}
-        style={styles.gradient}
-      >
-        <View style={styles.main}>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Animated.View 
+          style={styles.main}
+          entering={FadeIn.delay(200).duration(800)}
+        >
           <Animated.Image
-            entering={FadeIn.delay(200).duration(1000)}
+            entering={FadeIn.delay(300).duration(1000)}
             source={require('../assets/images/biocrowny-logo.png')}
             style={styles.logo}
             resizeMode="contain"
           />
           
           <Animated.View
-            entering={FadeInDown.delay(500).duration(1000)}
+            entering={FadeInDown.delay(500).duration(800)}
             style={styles.textContainer}
           >
             <Text style={styles.title}>Bienvenido</Text>
@@ -32,39 +39,43 @@ export default function Page() {
 
           <View style={styles.buttonContainer}>
             <Animated.View
-              entering={FadeInUp.delay(800).duration(1000)}
+              entering={FadeInDown.delay(700).duration(800)}
             >
               <TouchableOpacity 
                 style={[styles.button, styles.primaryButton]}
-                onPress={() => router.push('/(tabs)')}
+                onPress={goToMainApp}
+                activeOpacity={0.8}
               >
                 <Text style={styles.buttonText}>Ir a la app principal</Text>
               </TouchableOpacity>
             </Animated.View>
 
             <Animated.View
-              entering={FadeInUp.delay(1000).duration(1000)}
+              entering={FadeInDown.delay(900).duration(800)}
             >
               <TouchableOpacity 
                 style={[styles.button, styles.secondaryButton]}
-                onPress={() => router.push('/delivery-scan')}
+                onPress={goToDeliveryScan}
+                activeOpacity={0.8}
               >
                 <Text style={[styles.buttonText, styles.secondaryButtonText]}>Ir a Escaneo de Entregas</Text>
               </TouchableOpacity>
             </Animated.View>
           </View>
-        </View>
-      </LinearGradient>
-    </View>
+        </Animated.View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
   container: {
     flex: 1,
-  },
-  gradient: {
-    flex: 1,
+    backgroundColor: "#FFFFFF",
   },
   main: {
     flex: 1,
@@ -73,13 +84,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   logo: {
-    width: width * 0.6,
-    height: width * 0.3,
+    width: 240,
+    height: 120,
     marginBottom: 40,
   },
   textContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 60,
   },
   title: {
     fontSize: 36,
