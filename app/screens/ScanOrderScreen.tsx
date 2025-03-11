@@ -728,6 +728,9 @@ export default function ScanOrderScreen() {
           ))}
         </ScrollView>
 
+        {/* Padding bottom */}
+        <View style={{ paddingBottom: 50 }} />
+
         <View
           style={[
             styles.bottomContainer,
