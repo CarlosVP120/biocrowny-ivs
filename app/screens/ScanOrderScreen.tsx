@@ -14,6 +14,7 @@ import {
   Platform,
   Linking,
   Animated as RNAnimated,
+  AppState,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
@@ -143,6 +144,33 @@ export default function ScanOrderScreen() {
     };
   });
 
+  const qrLock = useRef(false);
+  const appState = useRef(AppState.currentState);
+
+  // Add AppState listener to reset lock when app becomes active
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === "active"
+      ) {
+        qrLock.current = false;
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Add cleanup for component unmount
+  useEffect(() => {
+    return () => {
+      qrLock.current = false;
+    };
+  }, []);
+
   // Efecto para la animación de carga durante el cooldown
   useEffect(() => {
     if (isInCooldown) {
@@ -241,36 +269,49 @@ export default function ScanOrderScreen() {
     message: string,
     type: "success" | "error" = "success"
   ) => {
+    if (modalVisible) return;
+
     setModalMessage(message);
     setModalType(type);
     setModalVisible(true);
 
-    // Auto cerrar el modal después de 2 segundos
-    setTimeout(() => {
+    const modalTimeout = setTimeout(() => {
       setModalVisible(false);
-      if (type === "success") {
-        // Verificar si todos los productos han sido escaneados
-        const allScanned = currentOrder?.products.every((p) => p.scanned);
+
+      if (type === "success" && currentOrder) {
+        const allScanned = currentOrder.products.every((p) => p.scanned);
         if (allScanned) {
           setAllProductsScanned(true);
-          // Redirigir a la pantalla del código QR después de un breve retraso
-          setTimeout(() => {
-            if (currentOrder) {
-              router.push(`/order-completed/${currentOrder.id}`);
-            }
-          }, 500);
+          router.push(`/order-completed/${currentOrder.id}`);
         }
       }
+
+      // Reset all scanning states
+      qrLock.current = false;
+      setScanned(false);
+      setIsInCooldown(false);
+      scanFrameColorAnim.setValue(0);
+      scanLoadingAnim.setValue(0);
     }, 2000);
+
+    return () => clearTimeout(modalTimeout);
   };
 
   const handleBarCodeScanned = (scanningResult: BarcodeScanningResult) => {
-    if (scanned || isInCooldown || !currentOrder || processingBarcode) return;
+    // Use qrLock to prevent multiple scans
+    if (!currentOrder || qrLock.current) {
+      console.log("Scan blocked:", {
+        hasOrder: !!currentOrder,
+        qrLocked: qrLock.current,
+      });
+      return;
+    }
+
+    // Immediately lock scanning
+    qrLock.current = true;
+    setProcessingBarcode(true);
 
     try {
-      setProcessingBarcode(true);
-      setScanned(true);
-
       const { data } = scanningResult;
       console.log("Código escaneado:", data);
 
@@ -279,13 +320,12 @@ export default function ScanOrderScreen() {
       });
 
       if (productToUpdate) {
-        // Set the last scanned product ID for highlighting
         setLastScannedProductId(productToUpdate.id);
 
-        // Crear una copia profunda del pedido actual para evitar mutaciones
+        // Create a deep copy of the current order
         const updatedOrder = JSON.parse(JSON.stringify(currentOrder));
 
-        // Actualizar el producto escaneado
+        // Update scanned product
         const updatedProducts = updatedOrder.products.map(
           (product: Product) => {
             if (product.id === productToUpdate.id) {
@@ -302,17 +342,16 @@ export default function ScanOrderScreen() {
         updatedOrder.products = updatedProducts;
         setCurrentOrder(updatedOrder);
 
-        // Actualizar el store global
+        // Update global store
         const { orders, setOrders } = useOrdersStore.getState();
         const updatedOrders = orders.map((order) =>
           order.id === currentOrder.id ? updatedOrder : order
         );
         setOrders(updatedOrders);
 
-        setIsInCooldown(true);
-
         const remaining =
           productToUpdate.quantity - (productToUpdate.scannedCount + 1);
+
         if (remaining > 0) {
           showModal(
             `Producto "${productToUpdate.name}" escaneado (${
@@ -323,19 +362,15 @@ export default function ScanOrderScreen() {
           showModal(`Producto "${productToUpdate.name}" completado!`);
         }
 
-        // Verificar si todos los productos han sido escaneados completamente
+        // Check if all products are scanned
         const allProductsComplete = updatedProducts.every(
           (p: Product) => p.scannedCount === p.quantity
         );
 
         if (allProductsComplete) {
-          setTimeout(() => {
-            showModal("¡Todos los productos han sido escaneados!");
-            setAllProductsScanned(true);
-            setTimeout(() => {
-              closeDrawer();
-            }, 1500);
-          }, 500);
+          showModal("¡Todos los productos han sido escaneados!");
+          setAllProductsScanned(true);
+          closeDrawer();
         }
       } else {
         const isProductComplete = currentOrder.products.find(
@@ -344,13 +379,11 @@ export default function ScanOrderScreen() {
         );
 
         if (isProductComplete) {
-          setIsInCooldown(true);
           showModal(
             `El producto "${isProductComplete.name}" ya fue escaneado completamente`,
             "error"
           );
         } else {
-          setIsInCooldown(true);
           showModal(
             `Código "${data}" no corresponde a ningún producto del pedido`,
             "error"
@@ -361,14 +394,17 @@ export default function ScanOrderScreen() {
       console.error("Error al procesar el código:", error);
       showModal("Error al procesar el código escaneado", "error");
     } finally {
+      // Reset processing flag after delay
       setTimeout(() => {
         setProcessingBarcode(false);
       }, 500);
     }
   };
 
-  // Función para reiniciar el escaneo
   const handleRescan = () => {
+    if (modalVisible || processingBarcode) return;
+
+    qrLock.current = false;
     setScanned(false);
     setIsInCooldown(false);
     scanFrameColorAnim.setValue(0);

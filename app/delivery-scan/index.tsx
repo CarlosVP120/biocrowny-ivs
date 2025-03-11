@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   StatusBar,
   Animated,
+  AppState,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
@@ -23,6 +24,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { sendOrderStatusNotificationWithFallback } from "../lib/twilioService";
 
 export default function DeliveryScanScreen() {
+  const qrLock = useRef(false);
+  const appState = useRef(AppState.currentState);
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -34,9 +37,27 @@ export default function DeliveryScanScreen() {
   const { orders, setOrders } = useOrdersStore();
   const { getClientById } = useClientsStore();
 
-  // Clean up cooldown timer on unmount
+  // Add AppState listener to reset lock when app becomes active
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === "active"
+      ) {
+        qrLock.current = false;
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Add cleanup for component unmount
   useEffect(() => {
     return () => {
+      qrLock.current = false;
       if (cooldownTimer.current) {
         clearTimeout(cooldownTimer.current);
       }
@@ -70,6 +91,7 @@ export default function DeliveryScanScreen() {
 
   const activateCooldown = () => {
     setCooldown(true);
+    qrLock.current = true;
 
     if (cooldownTimer.current) {
       clearTimeout(cooldownTimer.current);
@@ -78,24 +100,38 @@ export default function DeliveryScanScreen() {
     cooldownTimer.current = setTimeout(() => {
       setCooldown(false);
       setScanned(false);
+      qrLock.current = false;
     }, 3000); // 3 seconds cooldown
   };
 
   const handleBarCodeScanned = async (
     scanningResult: BarcodeScanningResult
   ) => {
-    // Prevent scanning if already scanned or in cooldown
-    if (scanned || cooldown || loading) return;
+    // Prevent scanning if already locked or processing
+    if (qrLock.current || loading) {
+      console.log("Scan blocked:", {
+        qrLocked: qrLock.current,
+        loading,
+        cooldown,
+      });
+      return;
+    }
 
-    // Immediately set scanned to true to prevent multiple scans
+    // Immediately lock scanning
+    qrLock.current = true;
     setScanned(true);
+    setLoading(true);
 
     try {
       const { data } = scanningResult;
 
       // Verificar si el código escaneado tiene el formato correcto (order:ID)
       if (!data.startsWith("order:")) {
-        Alert.alert("Error", "Código QR inválido");
+        await new Promise<void>((resolve) => {
+          Alert.alert("Error", "Código QR inválido", [
+            { text: "OK", onPress: () => resolve() },
+          ]);
+        });
         activateCooldown();
         return;
       }
@@ -104,7 +140,11 @@ export default function DeliveryScanScreen() {
       const order = orders.find((o) => o.id === orderId);
 
       if (!order) {
-        Alert.alert("Error", "Pedido no encontrado");
+        await new Promise<void>((resolve) => {
+          Alert.alert("Error", "Pedido no encontrado", [
+            { text: "OK", onPress: () => resolve() },
+          ]);
+        });
         activateCooldown();
         return;
       }
@@ -114,28 +154,36 @@ export default function DeliveryScanScreen() {
       const newCount = currentCount + 1;
       setScanCount({ ...scanCount, [orderId]: newCount });
 
-      setLoading(true);
-
       if (newCount === 1) {
         // Primera lectura: Notificar al cliente que su pedido está en camino
         await sendDeliveryNotification(order, "en_camino");
-        Alert.alert(
-          "Éxito",
-          `Se ha notificado al cliente que su pedido ${orderId} está en camino`,
-          [{ text: "OK", onPress: () => activateCooldown() }]
-        );
+        await new Promise<void>((resolve) => {
+          Alert.alert(
+            "Éxito",
+            `Se ha notificado al cliente que su pedido ${orderId} está en camino`,
+            [{ text: "OK", onPress: () => resolve() }]
+          );
+        });
+        activateCooldown();
       } else if (newCount === 2) {
         // Segunda lectura: Notificar al cliente que su pedido está en la puerta
         await sendDeliveryNotification(order, "en_puerta");
         router.push(`/delivery-status/${orderId}`);
       } else {
-        Alert.alert("Error", "Este QR ya ha sido escaneado dos veces", [
-          { text: "OK", onPress: () => activateCooldown() },
-        ]);
+        await new Promise<void>((resolve) => {
+          Alert.alert("Error", "Este QR ya ha sido escaneado dos veces", [
+            { text: "OK", onPress: () => resolve() },
+          ]);
+        });
+        activateCooldown();
       }
     } catch (error) {
       console.error("Error al escanear:", error);
-      Alert.alert("Error", "Hubo un problema al procesar el código QR");
+      await new Promise<void>((resolve) => {
+        Alert.alert("Error", "Hubo un problema al procesar el código QR", [
+          { text: "OK", onPress: () => resolve() },
+        ]);
+      });
       activateCooldown();
     } finally {
       setLoading(false);
@@ -226,7 +274,7 @@ export default function DeliveryScanScreen() {
             <CameraView
               style={styles.camera}
               onBarcodeScanned={
-                scanned || cooldown ? undefined : handleBarCodeScanned
+                qrLock.current ? undefined : handleBarCodeScanned
               }
               barcodeScannerSettings={{
                 barcodeTypes: ["qr"],
