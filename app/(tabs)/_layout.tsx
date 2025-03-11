@@ -17,7 +17,9 @@ export default function TabLayout() {
         tabBarInactiveTintColor: "#666666",
         headerShown: false,
         tabBarButton: HapticTab,
-        tabBarBackground: () => <View style={{ flex: 1, backgroundColor: "#FFFFFF" }} />,
+        tabBarBackground: () => (
+          <View style={{ flex: 1, backgroundColor: "#FFFFFF" }} />
+        ),
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
           borderTopColor: "#E9ECEF",

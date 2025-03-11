@@ -28,13 +28,13 @@ import {
 import { useOrdersStore } from "../store/orderStore";
 import { useClientsStore } from "../store/clientStore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withSpring, 
-  withTiming 
-} from 'react-native-reanimated';
-import { useFocusEffect } from '@react-navigation/native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { useFocusEffect } from "@react-navigation/native";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const DRAWER_HEIGHT = SCREEN_HEIGHT * 0.85;
@@ -57,10 +57,10 @@ interface Product {
 }
 
 // Componente para el marco de escaneo con color animado
-const AnimatedScanFrame: React.FC<AnimatedScanFrameProps> = ({ 
-  isInCooldown, 
-  scanFrameColorAnim, 
-  scanLoadingAnim 
+const AnimatedScanFrame: React.FC<AnimatedScanFrameProps> = ({
+  isInCooldown,
+  scanFrameColorAnim,
+  scanLoadingAnim,
 }) => {
   // Convertir la interpolación a un string para evitar errores de tipo
   const borderColorString = scanFrameColorAnim.interpolate({
@@ -70,33 +70,35 @@ const AnimatedScanFrame: React.FC<AnimatedScanFrameProps> = ({
 
   return (
     <View style={styles.scanFrame}>
-      <View style={{ 
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        borderWidth: 2,
-        borderRadius: 8,
-        borderColor: "#0066CC" // Color base
-      }} />
-      
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          borderWidth: 2,
+          borderRadius: 8,
+          borderColor: "#0066CC", // Color base
+        }}
+      />
+
       {/* Capa animada encima */}
       {isInCooldown && (
         <RNAnimated.View
           style={{
-            position: 'absolute',
+            position: "absolute",
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
             borderWidth: 2,
             borderRadius: 8,
-            borderColor: borderColorString
+            borderColor: borderColorString,
           }}
         />
       )}
-      
+
       {isInCooldown && (
         <RNAnimated.View
           style={[
@@ -145,12 +147,12 @@ export default function ScanOrderScreen() {
   // Animaciones para el cooldown del escáner
   const scanFrameColorAnim = useRef(new RNAnimated.Value(0)).current;
   const scanLoadingAnim = useRef(new RNAnimated.Value(0)).current;
-  
+
   // Animación para el botón de escanear
   const buttonScale = useSharedValue(1);
   const buttonAnimStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ scale: buttonScale.value }]
+      transform: [{ scale: buttonScale.value }],
     };
   });
 
@@ -203,22 +205,22 @@ export default function ScanOrderScreen() {
         return;
       }
     }
-    
+
     // Animar el botón al presionar
     buttonScale.value = withTiming(0.95, { duration: 100 });
     setTimeout(() => {
       buttonScale.value = withTiming(1, { duration: 100 });
-      
+
       // Iniciar el escaneo
       setScanned(false);
       setIsScanning(true);
-      
+
       // Usar la API de Animated de React Native
       RNAnimated.spring(drawerAnim, {
         toValue: SCREEN_HEIGHT - DRAWER_HEIGHT,
         useNativeDriver: true,
         friction: 8,
-        tension: 40
+        tension: 40,
       }).start();
     }, 150);
   };
@@ -228,7 +230,7 @@ export default function ScanOrderScreen() {
       toValue: SCREEN_HEIGHT,
       useNativeDriver: true,
       friction: 8,
-      tension: 40
+      tension: 40,
     }).start(() => {
       setIsScanning(false);
       setScanned(false);
@@ -267,11 +269,11 @@ export default function ScanOrderScreen() {
 
   const handleBarCodeScanned = (scanningResult: BarcodeScanningResult) => {
     if (scanned || isInCooldown || !currentOrder || processingBarcode) return;
-    
+
     try {
       setProcessingBarcode(true);
       setScanned(true);
-      
+
       const { data } = scanningResult;
       console.log("Código escaneado:", data);
 
@@ -285,22 +287,24 @@ export default function ScanOrderScreen() {
 
         // Crear una copia profunda del pedido actual para evitar mutaciones
         const updatedOrder = JSON.parse(JSON.stringify(currentOrder));
-        
+
         // Actualizar el producto escaneado
-        const updatedProducts = updatedOrder.products.map((product: Product) => {
-          if (product.id === productToUpdate.id) {
-            return {
-              ...product,
-              scannedCount: product.scannedCount + 1,
-              scanned: product.scannedCount + 1 === product.quantity,
-            };
+        const updatedProducts = updatedOrder.products.map(
+          (product: Product) => {
+            if (product.id === productToUpdate.id) {
+              return {
+                ...product,
+                scannedCount: product.scannedCount + 1,
+                scanned: product.scannedCount + 1 === product.quantity,
+              };
+            }
+            return product;
           }
-          return product;
-        });
-        
+        );
+
         updatedOrder.products = updatedProducts;
         setCurrentOrder(updatedOrder);
-        
+
         // Actualizar el store global
         const { orders, setOrders } = useOrdersStore.getState();
         const updatedOrders = orders.map((order) =>
@@ -406,20 +410,38 @@ export default function ScanOrderScreen() {
 
   if (!currentOrder) {
     return (
-      <ThemedView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.headerButton}
-          >
-            <Ionicons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <ThemedText style={styles.headerTitle}>Detalles de Orden</ThemedText>
-        </View>
-        <View style={styles.content}>
-          <ThemedText style={styles.errorText}>Orden no encontrada</ThemedText>
-        </View>
-      </ThemedView>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <ThemedView style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#0066CC" />
+              <ThemedText style={styles.backText}>Volver</ThemedText>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.noOrderContainer}>
+            <Ionicons name="alert-circle-outline" size={60} color="#FF3B30" />
+            <ThemedText style={styles.errorText}>
+              Orden no encontrada
+            </ThemedText>
+            <ThemedText style={styles.errorSubtext}>
+              La orden que estás buscando no existe o no está disponible.
+            </ThemedText>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.back()}
+            >
+              <ThemedText style={[styles.buttonText, { color: "#0066CC" }]}>
+                Volver a la lista de pedidos
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        </ThemedView>
+      </SafeAreaView>
     );
   }
 
@@ -503,25 +525,29 @@ export default function ScanOrderScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView 
-          style={styles.content} 
+        <ScrollView
+          style={styles.content}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }}
         >
           <View style={styles.orderInfo}>
-            <ThemedText style={styles.orderId}>Pedido: {currentOrder.id}</ThemedText>
-            
+            <ThemedText style={styles.orderId}>
+              Pedido: {currentOrder.id}
+            </ThemedText>
+
             <View style={styles.progressSection}>
               <View style={styles.progressHeader}>
                 <ThemedText style={styles.progressTitle}>Progreso</ThemedText>
-                <ThemedText style={styles.progressPercentage}>{Math.round(progressPercentage)}%</ThemedText>
+                <ThemedText style={styles.progressPercentage}>
+                  {Math.round(progressPercentage)}%
+                </ThemedText>
               </View>
               <View style={styles.progressContainer}>
                 <View style={styles.progressBar}>
-                  <Animated.View 
+                  <Animated.View
                     style={[
-                      styles.progressFill, 
-                      { width: `${progressPercentage}%` }
+                      styles.progressFill,
+                      { width: `${progressPercentage}%` },
                     ]}
                   />
                 </View>
@@ -530,14 +556,26 @@ export default function ScanOrderScreen() {
                 </ThemedText>
               </View>
             </View>
-            
+
             <View style={styles.orderDetails}>
               <View style={styles.detailRow}>
-                <Ionicons name="cube-outline" size={18} color="#6C757D" style={styles.detailIcon} />
-                <ThemedText style={styles.detailText}>Almacén: {currentOrder.warehouse}</ThemedText>
+                <Ionicons
+                  name="cube-outline"
+                  size={18}
+                  color="#6C757D"
+                  style={styles.detailIcon}
+                />
+                <ThemedText style={styles.detailText}>
+                  Almacén: {currentOrder.warehouse}
+                </ThemedText>
               </View>
               <View style={styles.detailRow}>
-                <Ionicons name="calendar-outline" size={18} color="#6C757D" style={styles.detailIcon} />
+                <Ionicons
+                  name="calendar-outline"
+                  size={18}
+                  color="#6C757D"
+                  style={styles.detailIcon}
+                />
                 <ThemedText style={styles.detailText}>
                   Fecha estimada: {currentOrder.estimatedDate}
                 </ThemedText>
@@ -560,7 +598,8 @@ export default function ScanOrderScreen() {
               style={[
                 styles.productItem,
                 product.scanned && styles.productItemScanned,
-                product.id === lastScannedProductId && styles.lastScannedProduct
+                product.id === lastScannedProductId &&
+                  styles.lastScannedProduct,
               ]}
             >
               <View style={styles.productHeader}>
@@ -570,13 +609,17 @@ export default function ScanOrderScreen() {
                 <View
                   style={[
                     styles.statusBadge,
-                    product.scanned ? styles.statusBadgeSuccess : styles.statusBadgePending
+                    product.scanned
+                      ? styles.statusBadgeSuccess
+                      : styles.statusBadgePending,
                   ]}
                 >
                   <ThemedText
                     style={[
                       styles.statusText,
-                      product.scanned ? styles.statusTextSuccess : styles.statusTextPending
+                      product.scanned
+                        ? styles.statusTextSuccess
+                        : styles.statusTextPending,
                     ]}
                   >
                     {product.scanned ? "✅ Escaneado" : "⏳ Pendiente"}
@@ -585,11 +628,23 @@ export default function ScanOrderScreen() {
               </View>
               <View style={styles.productDetails}>
                 <View style={styles.detailRow}>
-                  <Ionicons name="barcode-outline" size={16} color="#6C757D" style={styles.detailIcon} />
-                  <ThemedText style={styles.detailText}>SKU (escanear): {product.sku}</ThemedText>
+                  <Ionicons
+                    name="barcode-outline"
+                    size={16}
+                    color="#6C757D"
+                    style={styles.detailIcon}
+                  />
+                  <ThemedText style={styles.detailText}>
+                    SKU (escanear): {product.sku}
+                  </ThemedText>
                 </View>
                 <View style={styles.detailRow}>
-                  <Ionicons name="cube-outline" size={16} color="#6C757D" style={styles.detailIcon} />
+                  <Ionicons
+                    name="cube-outline"
+                    size={16}
+                    color="#6C757D"
+                    style={styles.detailIcon}
+                  />
                   <ThemedText style={styles.detailText}>
                     Escaneados: {product.scannedCount}/{product.quantity}
                   </ThemedText>
@@ -599,7 +654,11 @@ export default function ScanOrderScreen() {
                     <View
                       style={[
                         styles.scanProgressFill,
-                        { width: `${(product.scannedCount / product.quantity) * 100}%` }
+                        {
+                          width: `${
+                            (product.scannedCount / product.quantity) * 100
+                          }%`,
+                        },
                       ]}
                     />
                   </View>
@@ -609,10 +668,12 @@ export default function ScanOrderScreen() {
           ))}
         </ScrollView>
 
-        <View style={[
-          styles.bottomContainer, 
-          { paddingBottom: Math.max(16, insets.bottom + 16) }
-        ]}>
+        <View
+          style={[
+            styles.bottomContainer,
+            { paddingBottom: Math.max(16, insets.bottom + 16) },
+          ]}
+        >
           {allProductsScanned ? (
             <TouchableOpacity
               style={[styles.actionButton, styles.completeOrderButton]}
@@ -801,7 +862,7 @@ export default function ScanOrderScreen() {
                 }
               />
               <View style={styles.overlay}>
-                <AnimatedScanFrame 
+                <AnimatedScanFrame
                   isInCooldown={isInCooldown}
                   scanFrameColorAnim={scanFrameColorAnim}
                   scanLoadingAnim={scanLoadingAnim}
@@ -1008,11 +1069,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#0066CC",
   },
   bottomContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: "#E9ECEF",
@@ -1242,33 +1303,40 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   errorText: {
-    fontSize: 18,
+    fontSize: 20,
+    fontWeight: "bold",
+    marginTop: 16,
+    color: "#FF3B30",
+  },
+  errorSubtext: {
+    fontSize: 16,
     textAlign: "center",
-    margin: 20,
+    marginVertical: 16,
+    color: "#6C757D",
   },
   progressSection: {
     marginBottom: 16,
   },
   progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 8,
   },
   progressTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
+    fontWeight: "600",
+    color: "#000000",
   },
   progressPercentage: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#0066CC',
+    fontWeight: "600",
+    color: "#0066CC",
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   sectionCount: {
@@ -1277,14 +1345,14 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   detailIcon: {
     marginRight: 8,
   },
   lastScannedProduct: {
-    borderColor: '#0066CC',
+    borderColor: "#0066CC",
     borderWidth: 2,
     transform: [{ scale: 1.02 }],
   },
@@ -1292,5 +1360,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     marginLeft: 10,
+  },
+  noOrderContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
   },
 });
