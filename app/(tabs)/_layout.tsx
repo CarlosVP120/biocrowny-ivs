@@ -30,6 +30,7 @@ export default function TabLayout() {
               shadowOffset: { width: 0, height: -2 },
               shadowOpacity: 0.05,
               shadowRadius: 4,
+              position: "absolute",
             },
             android: {
               elevation: 8,
@@ -41,7 +42,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: "Inicio",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="house.fill" color={color} />
           ),
@@ -50,7 +51,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="scan-order/[id]"
         options={{
-          title: "Scan Order",
+          title: "Escaneo de Órdenes",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="qrcode" color={color} />
           ),

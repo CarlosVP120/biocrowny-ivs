@@ -53,10 +53,10 @@ export const dummyOrders: Order[] = [
     status: "in_progress",
     products: [
       {
-        id: "P003",
+        id: "P005",
         name: "Teclado Mecánico",
-        sku: "KB-MECH-01",
-        quantity: 5,
+        sku: "7503037623851",
+        quantity: 2,
         scanned: false,
         scannedCount: 0,
       },

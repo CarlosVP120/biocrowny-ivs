@@ -17,8 +17,14 @@ export default function RootLayout() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="delivery-scan" options={{ headerShown: false }} />
-      <Stack.Screen name="delivery-status/[id]" options={{ headerShown: false }} />
-      <Stack.Screen name="order-completed/[id]" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="delivery-status/[id]"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="order-completed/[id]"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }

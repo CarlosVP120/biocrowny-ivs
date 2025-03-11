@@ -168,7 +168,7 @@ export default function HomeScreen() {
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <View style={styles.homeButton}>
-              <Ionicons name="home" size={24} color="#FFFFFF" />
+              <Ionicons name="home" size={18} color="#FFFFFF" />
             </View>
             <Text style={styles.homeButtonText}>Inicio</Text>
           </TouchableOpacity>
@@ -379,8 +379,8 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 16,
-    paddingTop: 20,
+    padding: 12,
+    paddingTop: 8,
     backgroundColor: "#FFFFFF",
   },
   loadingContainer: {
@@ -396,28 +396,28 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     position: "relative",
-    marginBottom: 20,
-    paddingTop: 10,
+    marginBottom: 12,
+    paddingTop: 0,
   },
   header: {
     marginBottom: 0,
-    paddingTop: 10,
+    paddingTop: 0,
   },
   homeButtonContainer: {
     position: "absolute",
-    top: 0,
+    top: -15,
     left: 0,
     zIndex: 10,
     flexDirection: "row",
     alignItems: "center",
-    padding: 10,
-    minWidth: 100,
-    minHeight: 44,
+    padding: 8,
+    minWidth: 90,
+    minHeight: 40,
   },
   homeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 28,
+    height: 28,
+    borderRadius: 16,
     backgroundColor: "#0066CC",
     justifyContent: "center",
     alignItems: "center",
@@ -428,33 +428,41 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   homeButtonText: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: 6,
+    fontSize: 13,
     fontWeight: "600",
     color: "#0066CC",
   },
+  logo: {
+    width: 140,
+    height: 40,
+    alignSelf: "center",
+    marginBottom: 8,
+  },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "700",
     color: "#000000",
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: 8,
   },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
-    marginBottom: 8,
+    marginBottom: 4,
+    paddingHorizontal: 20,
   },
   statItem: {
     alignItems: "center",
+    flexDirection: "row",
+    gap: 4,
   },
   statBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 4,
   },
   pendingBadge: {
     backgroundColor: "#FFF3CD",
@@ -467,7 +475,7 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontWeight: "700",
-    fontSize: 16,
+    fontSize: 14,
     color: "#000000",
   },
   statLabel: {
@@ -478,12 +486,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 8,
-    marginBottom: 12,
+    marginTop: 4,
     paddingHorizontal: 4,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E9ECEF",
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
     color: "#000000",
   },
@@ -495,11 +505,12 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+    paddingTop: 12,
   },
   orderCard: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: "#E9ECEF",
     backgroundColor: "#FFFFFF",
@@ -527,7 +538,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   orderTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: "#000000",
   },
@@ -542,17 +553,17 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   orderDetail: {
-    fontSize: 15,
+    fontSize: 13,
     color: "#000000",
   },
   takeOrderButton: {
     backgroundColor: "#0066CC",
-    padding: 16,
-    borderRadius: 12,
+    padding: 12,
+    borderRadius: 10,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: 20,
+    marginBottom: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -565,8 +576,8 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "white",
     fontWeight: "600",
-    fontSize: 16,
-    marginLeft: 8,
+    fontSize: 14,
+    marginLeft: 6,
   },
   statusBadge: {
     paddingHorizontal: 10,
@@ -583,7 +594,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#D4EDDA",
   },
   statusText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
   },
   statusTextPending: {
@@ -592,27 +603,21 @@ const styles = StyleSheet.create({
   statusTextSuccess: {
     color: "#28A745",
   },
-  logo: {
-    width: 180,
-    height: 50,
-    alignSelf: "center",
-    marginBottom: 16,
-  },
   continueContainer: {
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: "#E9ECEF",
   },
   continueText: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#0066CC",
     marginRight: 4,
   },
   bottomPadding: {
-    height: 80,
+    height: 40,
   },
 });

@@ -70,19 +70,6 @@ const AnimatedScanFrame: React.FC<AnimatedScanFrameProps> = ({
 
   return (
     <View style={styles.scanFrame}>
-      <View
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          borderWidth: 2,
-          borderRadius: 8,
-          borderColor: "#0066CC", // Color base
-        }}
-      />
-
       {/* Capa animada encima */}
       {isInCooldown && (
         <RNAnimated.View
@@ -121,7 +108,7 @@ export default function ScanOrderScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const [currentOrder, setCurrentOrder] = useState<Order | undefined>(
-    dummyOrders.find((order) => order.id === id)
+    useOrdersStore.getState().orders.find((order) => order.id === id)
   );
   const { getClientById } = useClientsStore();
   const client = currentOrder
@@ -192,6 +179,16 @@ export default function ScanOrderScreen() {
         buttonScale.value = withSpring(1);
       }, 300);
     }, [])
+  );
+
+  // Update current order when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const order = useOrdersStore
+        .getState()
+        .orders.find((order) => order.id === id);
+      setCurrentOrder(order);
+    }, [id])
   );
 
   const insets = useSafeAreaInsets();
@@ -535,6 +532,69 @@ export default function ScanOrderScreen() {
               Pedido: {currentOrder.id}
             </ThemedText>
 
+            {/* Client Information Section */}
+            {client && (
+              <View style={styles.clientSection}>
+                <View style={styles.clientHeader}>
+                  <Ionicons name="person-outline" size={18} color="#6C757D" />
+                  <ThemedText style={styles.clientTitle}>
+                    Información del Cliente
+                  </ThemedText>
+                </View>
+                <View style={styles.clientDetails}>
+                  <View style={styles.detailRow}>
+                    <Ionicons
+                      name="person"
+                      size={16}
+                      color="#6C757D"
+                      style={styles.detailIcon}
+                    />
+                    <ThemedText style={styles.detailText}>
+                      {client.name}
+                    </ThemedText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.detailRow}
+                    onPress={handleCallClient}
+                  >
+                    <Ionicons
+                      name="call"
+                      size={16}
+                      color="#0066CC"
+                      style={styles.detailIcon}
+                    />
+                    <ThemedText
+                      style={[styles.detailText, { color: "#0066CC" }]}
+                    >
+                      {client.phone}
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <View style={styles.detailRow}>
+                    <Ionicons
+                      name="mail"
+                      size={16}
+                      color="#6C757D"
+                      style={styles.detailIcon}
+                    />
+                    <ThemedText style={styles.detailText}>
+                      {client.email}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Ionicons
+                      name="location"
+                      size={16}
+                      color="#6C757D"
+                      style={styles.detailIcon}
+                    />
+                    <ThemedText style={styles.detailText}>
+                      {client.address}
+                    </ThemedText>
+                  </View>
+                </View>
+              </View>
+            )}
+
             <View style={styles.progressSection}>
               <View style={styles.progressHeader}>
                 <ThemedText style={styles.progressTitle}>Progreso</ThemedText>
@@ -671,7 +731,8 @@ export default function ScanOrderScreen() {
         <View
           style={[
             styles.bottomContainer,
-            { paddingBottom: Math.max(16, insets.bottom + 16) },
+            { paddingBottom: 60 },
+            isScanning && styles.bottomContainerHidden,
           ]}
         >
           {allProductsScanned ? (
@@ -722,15 +783,11 @@ export default function ScanOrderScreen() {
             <View
               style={[
                 styles.pendingItemsContainer,
-                { borderBottomColor: colors.border },
+                { borderBottomColor: "#E9ECEF", backgroundColor: "#F8F9FA" },
               ]}
             >
               <View style={styles.pendingItemsHeader}>
-                <Ionicons
-                  name="list-outline"
-                  size={18}
-                  color={isDark ? colors.text : "#6C757D"}
-                />
+                <Ionicons name="list-outline" size={18} color="#6C757D" />
                 <ThemedText
                   type="defaultSemiBold"
                   style={styles.pendingItemsTitle}
@@ -743,13 +800,9 @@ export default function ScanOrderScreen() {
                 (product) => product.scannedCount < product.quantity
               ).length === 0 ? (
                 <View style={styles.allScannedContainer}>
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={24}
-                    color={colors.success}
-                  />
+                  <Ionicons name="checkmark-circle" size={24} color="#28A745" />
                   <ThemedText
-                    style={[styles.allScannedText, { color: colors.success }]}
+                    style={[styles.allScannedText, { color: "#28A745" }]}
                   >
                     ¡Todos los productos han sido escaneados!
                   </ThemedText>
@@ -770,16 +823,12 @@ export default function ScanOrderScreen() {
                         style={[
                           styles.pendingItemCard,
                           {
-                            backgroundColor: isDark
-                              ? colors.card
-                              : colors.background,
-                            borderColor: colors.border,
+                            backgroundColor: "#FFFFFF",
+                            borderColor: "#E9ECEF",
                           },
                           product.id === lastScannedProductId && {
-                            borderColor: colors.primary,
-                            backgroundColor: isDark
-                              ? `${colors.primary}20`
-                              : `${colors.primary}10`,
+                            borderColor: "#0066CC",
+                            backgroundColor: "#F0F7FF",
                             transform: [{ scale: 1.02 }],
                           },
                         ]}
@@ -789,7 +838,7 @@ export default function ScanOrderScreen() {
                             style={[
                               styles.pendingItemName,
                               {
-                                color: isDark ? colors.text : "#333333",
+                                color: "#333333",
                                 fontWeight: "600",
                               },
                             ]}
@@ -800,7 +849,7 @@ export default function ScanOrderScreen() {
                           <View
                             style={[
                               styles.pendingItemQuantity,
-                              { backgroundColor: colors.primary },
+                              { backgroundColor: "#0066CC" },
                             ]}
                           >
                             <ThemedText style={styles.pendingItemQuantityText}>
@@ -813,13 +862,13 @@ export default function ScanOrderScreen() {
                             <Ionicons
                               name="barcode-outline"
                               size={14}
-                              color={isDark ? colors.text : "#6C757D"}
+                              color="#6C757D"
                               style={styles.pendingItemSkuIcon}
                             />
                             <ThemedText
                               style={[
                                 styles.pendingItemSkuText,
-                                { color: isDark ? "#BBBBBB" : "#6C757D" },
+                                { color: "#6C757D" },
                               ]}
                             >
                               SKU: {product.sku}
@@ -828,7 +877,7 @@ export default function ScanOrderScreen() {
                           <ThemedText
                             style={[
                               styles.pendingItemProgress,
-                              { color: isDark ? "#BBBBBB" : "#6C757D" },
+                              { color: "#6C757D" },
                             ]}
                           >
                             {product.scannedCount}/{product.quantity}
@@ -1111,7 +1160,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: DRAWER_HEIGHT,
-    backgroundColor: "white",
+    backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     shadowColor: "#000",
@@ -1129,6 +1178,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#E9ECEF",
+    backgroundColor: "#FFFFFF",
   },
   closeButton: {
     marginRight: 16,
@@ -1149,10 +1199,12 @@ const styles = StyleSheet.create({
     width: 250,
     height: 250,
     borderWidth: 2,
+    marginBottom: 100,
     borderColor: "#007AFF",
     backgroundColor: "transparent",
     position: "relative",
     overflow: "hidden",
+    borderRadius: 8,
   },
   scanText: {
     color: "white",
@@ -1211,7 +1263,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    maxHeight: 180, // Reduced height to ensure camera is more visible
+    maxHeight: 180,
+    backgroundColor: "#F8F9FA",
   },
   pendingItemsHeader: {
     flexDirection: "row",
@@ -1220,6 +1273,9 @@ const styles = StyleSheet.create({
   },
   pendingItemsTitle: {
     marginLeft: 8,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#000000",
   },
   pendingItemsList: {
     maxHeight: 130,
@@ -1233,6 +1289,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
     borderWidth: 1,
+    backgroundColor: "#FFFFFF",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -1357,8 +1414,9 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.02 }],
   },
   drawerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#000000",
     marginLeft: 10,
   },
   noOrderContainer: {
@@ -1366,5 +1424,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 32,
+  },
+  bottomContainerHidden: {
+    opacity: 0,
+    transform: [{ translateY: 100 }],
+  },
+  clientSection: {
+    marginBottom: 24,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E9ECEF",
+    padding: 16,
+  },
+  clientHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  clientTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#000000",
+    marginLeft: 8,
+  },
+  clientDetails: {
+    gap: 8,
   },
 });
