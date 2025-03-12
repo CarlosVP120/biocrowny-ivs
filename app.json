@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "biocrowny-ivs",
-    "slug": "biocrowny-ivs",
+    "slug": "biocrowny-ovs",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -48,6 +48,21 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "2a571562-a408-4ee3-85f4-1a40ade7367b"
+      }
+    },
+    "owner": "carlosveryan",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2a571562-a408-4ee3-85f4-1a40ade7367b"
     }
   }
 }
